@@ -6,8 +6,11 @@
         Refused,
         Cancelled,
         ForceCancelled,
-        FailedCondition,
-        Left,
+        SenderFailedCondition,
+        ReceiverFailedCondition,
+        SenderLeft,
+        ReceiverLeft,
+        AlreadySent,
         Expired
     }
 }

@@ -1,24 +1,27 @@
 ﻿#region Using
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Timers;
 #endregion
 namespace RequestsManagerAPI
 {
     public delegate void SendMessage(object Player, string Text, byte R, byte G, byte B);
+    public delegate void AcceptedDelegate(object Sender, object Receiver);
+
     public static class RequestsManager
     {
         public static SendMessage SendMessage;
-        private static ConcurrentDictionary<object, RequestCollection> RequestCollections =
+        public static Func<object, string> GetPlayerNameFunc { get; private set; }
+        internal static ConcurrentDictionary<object, RequestCollection> RequestCollections =
             new ConcurrentDictionary<object, RequestCollection>();
         private static Timer AnnouceTimer = new Timer(2500) { AutoReset = true };
-
+        
         #region Initialize
 
-        public static void Initialize()
+        public static void Initialize(Func<object, string> GetPlayerNameFunc)
         {
+            RequestsManager.GetPlayerNameFunc = GetPlayerNameFunc;
             AnnouceTimer.Elapsed += OnElapsed;
             AnnouceTimer.Start();
         }
@@ -95,24 +98,24 @@ namespace RequestsManagerAPI
         #region GetDecision
 
         public static async Task<(Decision Decision, ICondition BrokenCondition)> GetDecision(object Player,
-            string Key, string AnnounceText, params ICondition[] Conditions)
-        {
-            if (!RequestCollections.ContainsKey(Player))
-                RequestCollections.TryAdd(Player, new RequestCollection(Player));
-
-            return await RequestCollections[Player].GetDecision(Key, Conditions, AnnounceText);
-        }
+                object Sender, string Key, string AnnounceText, AcceptedDelegate OnAccepted = null,
+                ICondition[] SenderConditions = null, ICondition[] ReceiverConditions = null) =>
+            await RequestCollections[Player].GetDecision(Key, Sender,
+                SenderConditions, ReceiverConditions, AnnounceText, OnAccepted);
 
         #endregion
         #region SetDecision
 
-        public static SetDecisionResult SetDecision(object Player, string Key, Decision Decision)
-        {
-            if (!RequestCollections.TryGetValue(Player, out RequestCollection collection))
-                return SetDecisionResult.NoRequests;
+        public static RequestResult SetDecision(object Player, string Key,
+                object Sender, Decision Decision, out string RealKey, out object RealSender) =>
+            RequestCollections[Player].SetDecision(Key, Sender, Decision, out RealKey, out RealSender);
 
-            return collection.SetDecision(Key, Decision);
-        }
+        #endregion
+        #region Cancel
+
+        public static RequestResult Cancel(object Player, string Key,
+                out string RealKey, out object Receiver) =>
+            RequestCollections[Player].Cancel(Key, out RealKey, out Receiver);
 
         #endregion
     }

@@ -1,6 +1,6 @@
 ﻿namespace RequestsManagerAPI
 {
-    public enum SetDecisionResult
+    public enum RequestResult
     {
         Success,
         NoRequests,

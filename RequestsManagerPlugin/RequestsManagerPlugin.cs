@@ -45,21 +45,16 @@ namespace RequestsManagerPlugin
                     TShock.Utils.SendMultipleMatchError(args.Player, plrs.Select(p => p.Name));
                 else
                 {
-                    TSPlayer plr = plrs[0];
-                    args.Player.SendSuccessMessage("Sent tp request.");
+                    TSPlayer player = plrs[0];
                     (Decision Decision, ICondition BrokenCondition) =
-                        await RequestsManager.GetDecision(plr, "tp", $"{args.Player.Name} requested teleportation. " +
-                        $"Type /+ tp or /- tp to accept or refuse request.");
-                    switch (Decision)
-                    {
-                        case Decision.Accepted:
-                            args.Player.SendSuccessMessage($"{plr.Name} accepted your request.");
-                            args.Player.Teleport(plr.X, plr.Y);
-                            break;
-                        case Decision.Refused:
-                            args.Player.SendErrorMessage($"{plr.Name} refused your request.");
-                            break;
-                    }
+                        await RequestsManager.GetDecision(player, args.Player, "tp",
+                        $"{args.Player.Name} requested teleportation. " +
+                        RequestCommands.AcceptRefuseMessage("tp", args.Player),
+                        (s, r) =>
+                        {
+                            TSPlayer sender = (TSPlayer)s, receiver = (TSPlayer)r;
+                            sender.Teleport(receiver.X, receiver.Y);
+                        });
                 }
             }), "rmtp"));
 
@@ -73,10 +68,10 @@ namespace RequestsManagerPlugin
             */
             RequestCommands.Register();
             RequestsManager.SendMessage += OnSendMessage;
-            RequestsManager.Initialize();
-            return;
+            RequestsManager.Initialize(o => ((o is TSPlayer player) ? player?.Name : null));
             ServerApi.Hooks.ServerJoin.Register(this, OnServerJoin, int.MinValue);
             ServerApi.Hooks.ServerLeave.Register(this, OnServerLeave);
+            return;
             GetDataHandlers.KillMe.Register(OnKillMe);
             GetDataHandlers.PlayerUpdate.Register(OnPlayerUpdate);
             GetDataHandlers.PlayerHP.Register(OnPlayerHP);

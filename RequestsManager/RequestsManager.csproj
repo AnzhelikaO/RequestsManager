@@ -47,7 +47,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RequestCollection.cs" />
     <Compile Include="RequestsManager.cs" />
-    <Compile Include="SetDecisionFailReason.cs" />
+    <Compile Include="RequestResult.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
