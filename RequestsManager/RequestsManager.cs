@@ -7,7 +7,7 @@ using System.Timers;
 namespace RequestsManagerAPI
 {
     public delegate void SendMessage(object Player, string Text, byte R, byte G, byte B);
-    public delegate void AcceptedDelegate(object Sender, object Receiver);
+    public delegate void DecisionDelegate(object Sender, object Receiver, Decision Decision);
 
     public static class RequestsManager
     {
@@ -37,7 +37,7 @@ namespace RequestsManagerAPI
             foreach (var pair in RequestCollections)
             {
                 RequestCollections.TryRemove(pair.Key, out RequestCollection collection);
-                collection.ForceCancel();
+                collection.Dispose();
             }
         }
 
@@ -45,27 +45,16 @@ namespace RequestsManagerAPI
 
         #region PlayerJoined
 
-        public static void PlayerJoined(object Player)
-        {
-            if (Player is null)
-                return;
-
-            if (RequestCollections.TryGetValue(Player, out RequestCollection old))
-                RequestCollections.TryUpdate(Player, new RequestCollection(Player), old);
-            else
-                RequestCollections.TryAdd(Player, new RequestCollection(Player));
-        }
+        public static void PlayerJoined(object Player) =>
+            RequestCollections[Player] = new RequestCollection(Player);
 
         #endregion
         #region PlayerLeft
 
         public static void PlayerLeft(object Player)
         {
-            if (!RequestCollections.ContainsKey(Player))
-                return;
-
-            RequestCollections.TryRemove(Player, out RequestCollection collection);
-            collection.PlayerLeft();
+            if (RequestCollections.TryRemove(Player, out RequestCollection collection))
+                collection.PlayerLeft();
         }
 
         #endregion
@@ -98,10 +87,10 @@ namespace RequestsManagerAPI
         #region GetDecision
 
         public static async Task<(Decision Decision, ICondition BrokenCondition)> GetDecision(object Player,
-                object Sender, string Key, string AnnounceText, AcceptedDelegate OnAccepted = null,
+                object Sender, string Key, string AnnounceText, DecisionDelegate OnDecision = null,
                 ICondition[] SenderConditions = null, ICondition[] ReceiverConditions = null) =>
             await RequestCollections[Player].GetDecision(Key, Sender,
-                SenderConditions, ReceiverConditions, AnnounceText, OnAccepted);
+                SenderConditions, ReceiverConditions, AnnounceText, OnDecision);
 
         #endregion
         #region SetDecision
@@ -111,11 +100,11 @@ namespace RequestsManagerAPI
             RequestCollections[Player].SetDecision(Key, Sender, Decision, out RealKey, out RealSender);
 
         #endregion
-        #region Cancel
+        #region SenderCancelled
 
-        public static RequestResult Cancel(object Player, string Key,
+        public static RequestResult SenderCancelled(object Player, string Key,
                 out string RealKey, out object Receiver) =>
-            RequestCollections[Player].Cancel(Key, out RealKey, out Receiver);
+            RequestCollections[Player].SenderCancelled(Key, out RealKey, out Receiver);
 
         #endregion
     }

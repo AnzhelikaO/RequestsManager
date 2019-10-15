@@ -48,13 +48,16 @@ namespace RequestsManagerPlugin
                     TSPlayer player = plrs[0];
                     (Decision Decision, ICondition BrokenCondition) =
                         await RequestsManager.GetDecision(player, args.Player, "tp",
-                        $"{args.Player.Name} requested teleportation. " +
-                        RequestCommands.AcceptRefuseMessage("tp", args.Player),
-                        (s, r) =>
-                        {
-                            TSPlayer sender = (TSPlayer)s, receiver = (TSPlayer)r;
-                            sender.Teleport(receiver.X, receiver.Y);
-                        });
+                            $"{args.Player.Name} requested teleportation. " +
+                            RequestCommands.AcceptRefuseMessage("tp", args.Player),
+                            (s, r, d) =>
+                            {
+                                if (d == Decision.Accepted)
+                                {
+                                    TSPlayer sender = (TSPlayer)s, receiver = (TSPlayer)r;
+                                    sender.Teleport(receiver.X, receiver.Y);
+                                }
+                            });
                 }
             }), "rmtp"));
 

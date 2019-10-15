@@ -42,7 +42,7 @@ namespace RequestsManagerPlugin
 
         private static void Cancel(CommandArgs Args)
         {
-            RequestResult result = RequestsManager.Cancel(Args.Player,
+            RequestResult result = RequestsManager.SenderCancelled(Args.Player,
                 Args.Parameters.ElementAtOrDefault(0), out string realKey, out object receiver);
             string name = ((TSPlayer)receiver).Name;
             switch (result)

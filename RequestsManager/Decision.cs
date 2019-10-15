@@ -5,7 +5,7 @@
         Accepted,
         Refused,
         Cancelled,
-        ForceCancelled,
+        Disposed,
         SenderFailedCondition,
         ReceiverFailedCondition,
         SenderLeft,
