@@ -1,13 +1,13 @@
 ﻿#region Using
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Timers;
 #endregion
 namespace RequestsManagerAPI
 {
     public delegate void SendMessage(object Player, string Text, byte R, byte G, byte B);
-    public delegate void DecisionDelegate(object Sender, object Receiver, Decision Decision);
 
     public static class RequestsManager
     {
@@ -37,8 +37,33 @@ namespace RequestsManagerAPI
             foreach (var pair in RequestCollections)
             {
                 RequestCollections.TryRemove(pair.Key, out RequestCollection collection);
-                collection.Dispose();
+                collection.SetGlobalDecision(Decision.Disposed, Decision.Disposed);
             }
+        }
+
+        #endregion
+
+        #region AddConfiguration
+
+        public static void AddConfiguration(string Key, RequestConfiguration Configuration)
+        {
+            if (Key is null)
+                throw new ArgumentNullException(nameof(Key));
+            if (Configuration is null)
+                throw new ArgumentNullException(nameof(Configuration));
+
+            RequestCollection.RequestConfigurations[Key.ToLower()] = Configuration;
+        }
+
+        #endregion
+        #region RemoveConfiguration
+
+        public static void RemoveConfiguration(string Key)
+        {
+            if (Key is null)
+                throw new ArgumentNullException(nameof(Key));
+
+            RequestCollection.RequestConfigurations.TryRemove(Key.ToLower(), out _);
         }
 
         #endregion
@@ -54,14 +79,14 @@ namespace RequestsManagerAPI
         public static void PlayerLeft(object Player)
         {
             if (RequestCollections.TryRemove(Player, out RequestCollection collection))
-                collection.PlayerLeft();
+                collection.SetGlobalDecision(Decision.ReceiverLeft, Decision.SenderLeft);
         }
 
         #endregion
 
         #region GetRequestConditions
 
-        public static ICondition[] GetRequestConditions(object Player) =>
+        public static IEnumerable<ICondition> GetRequestConditions(object Player) =>
             ((Player != null) && RequestCollections.TryGetValue(Player, out RequestCollection collection)
                 ? collection.GetRequestConditions()
                 : new ICondition[0]);
@@ -87,10 +112,9 @@ namespace RequestsManagerAPI
         #region GetDecision
 
         public static async Task<(Decision Decision, ICondition BrokenCondition)> GetDecision(object Player,
-                object Sender, string Key, string AnnounceText, DecisionDelegate OnDecision = null,
-                ICondition[] SenderConditions = null, ICondition[] ReceiverConditions = null) =>
-            await RequestCollections[Player].GetDecision(Key, Sender,
-                SenderConditions, ReceiverConditions, AnnounceText, OnDecision);
+                object Sender, string Key, ICondition[] SenderConditions = null,
+                ICondition[] ReceiverConditions = null) =>
+            await RequestCollections[Player].GetDecision(Key, Sender, SenderConditions, ReceiverConditions);
 
         #endregion
         #region SetDecision
@@ -103,8 +127,8 @@ namespace RequestsManagerAPI
         #region SenderCancelled
 
         public static RequestResult SenderCancelled(object Player, string Key,
-                out string RealKey, out object Receiver) =>
-            RequestCollections[Player].SenderCancelled(Key, out RealKey, out Receiver);
+                object Receiver, out string RealKey, out object RealReceiver) =>
+            RequestCollections[Player].SenderCancelled(Key, Receiver, out RealKey, out RealReceiver);
 
         #endregion
     }

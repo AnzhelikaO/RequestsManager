@@ -29,11 +29,16 @@ namespace RequestsManagerPlugin
 
         public override void Initialize()
         {
-            Commands.ChatCommands.Add(new Command("rmtp", (async args =>
+            RequestsManager.AddConfiguration("tp1", new RequestConfiguration(false,
+                $"{{SENDER}} requested teleportation. " + RequestCommands.DecisionMessageFormat));
+            RequestsManager.AddConfiguration("tp2", new RequestConfiguration(true,
+                $"{{SENDER}} requested teleportation. " + RequestCommands.DecisionMessageFormat));
+
+            Commands.ChatCommands.Add(new Command("tp1", (async args =>
             {
                 if (args.Parameters.Count != 1)
                 {
-                    args.Player.SendErrorMessage("/rmtp <player>");
+                    args.Player.SendErrorMessage("/tp1 <player>");
                     return;
                 }
 
@@ -47,19 +52,34 @@ namespace RequestsManagerPlugin
                 {
                     TSPlayer player = plrs[0];
                     (Decision Decision, ICondition BrokenCondition) =
-                        await RequestsManager.GetDecision(player, args.Player, "tp",
-                            $"{args.Player.Name} requested teleportation. " +
-                            RequestCommands.AcceptRefuseMessage("tp", args.Player),
-                            (s, r, d) =>
-                            {
-                                if (d == Decision.Accepted)
-                                {
-                                    TSPlayer sender = (TSPlayer)s, receiver = (TSPlayer)r;
-                                    sender.Teleport(receiver.X, receiver.Y);
-                                }
-                            });
+                        await RequestsManager.GetDecision(player, args.Player, "tp1");
+                    if (Decision == Decision.Accepted)
+                        args.Player.Teleport(player.X, player.Y);
                 }
-            }), "rmtp"));
+            }), "tp1"));
+            Commands.ChatCommands.Add(new Command("tp2", (async args =>
+            {
+                if (args.Parameters.Count != 1)
+                {
+                    args.Player.SendErrorMessage("/tp2 <player>");
+                    return;
+                }
+
+                string name = args.Parameters[0];
+                List<TSPlayer> plrs = TShock.Utils.FindPlayer(name);
+                if (plrs.Count == 0)
+                    args.Player.SendErrorMessage($"Invalid player '{name}'.");
+                else if (plrs.Count > 1)
+                    TShock.Utils.SendMultipleMatchError(args.Player, plrs.Select(p => p.Name));
+                else
+                {
+                    TSPlayer player = plrs[0];
+                    (Decision Decision, ICondition BrokenCondition) =
+                        await RequestsManager.GetDecision(player, args.Player, "tp1");
+                    if (Decision == Decision.Accepted)
+                        args.Player.Teleport(player.X, player.Y);
+                }
+            }), "tp2"));
 
             /*
             Commands.ChatCommands.Add(new Command("rmtzt", (async args =>

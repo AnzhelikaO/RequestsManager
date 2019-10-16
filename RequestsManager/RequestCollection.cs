@@ -17,18 +17,16 @@ namespace RequestsManagerAPI
             public DateTime Creation;
             public byte AnnounceCount;
             public string AnnounceText;
-            public DecisionDelegate OnDecision;
             public TaskCompletionSource<Decision> Source;
             public ReadOnlyCollection<ICondition> SenderConditions;
             public ReadOnlyCollection<ICondition> ReceiverConditions;
 
             public Request(IList<ICondition> SenderConditions, IList<ICondition> ReceiverConditions,
-                string AnnounceText, DecisionDelegate OnDecision)
+                string AnnounceText)
             {
                 this.Creation = DateTime.UtcNow;
                 this.AnnounceCount = 0;
                 this.AnnounceText = AnnounceText;
-                this.OnDecision = OnDecision;
                 this.Source = new TaskCompletionSource<Decision>();
                 this.SenderConditions = ((SenderConditions == null)
                                     ? new ReadOnlyCollection<ICondition>(new ICondition[0])
@@ -41,58 +39,33 @@ namespace RequestsManagerAPI
 
         private ConcurrentDictionary<string, ConcurrentDictionary<object, Request>> Inbox =
             new ConcurrentDictionary<string, ConcurrentDictionary<object, Request>>();
-        // Multiple requests? This should be configurable (RequestTypeSettings instead of string key maybe)
-        private ConcurrentDictionary<string, (object Player, Request Request)> Outbox =
-            new ConcurrentDictionary<string, (object, Request)>();
+        private ConcurrentDictionary<string, ConcurrentDictionary<object, Request>> Outbox =
+            new ConcurrentDictionary<string, ConcurrentDictionary<object, Request>>();
         private ConcurrentDictionary<ICondition, byte> Conditions =
             new ConcurrentDictionary<ICondition, byte>();
         internal IEnumerable<ICondition> GetRequestConditions() => Conditions.Keys;
 
         #endregion
+        internal static ConcurrentDictionary<string, RequestConfiguration> RequestConfigurations =
+            new ConcurrentDictionary<string, RequestConfiguration>();
         public object Player;
         public RequestCollection(object Player) => this.Player = Player;
 
-        #region PlayerLeft
-
-        public void PlayerLeft()
-        {
-            foreach (var pair1 in Inbox)
-                foreach (var pair2 in pair1.Value)
-                    SetDecision(pair1.Key, pair2.Key, Decision.ReceiverLeft, out _, out _);
-            foreach (var pair in Outbox)
-                if (RequestsManager.RequestCollections.TryGetValue(pair.Value.Player,
-                        out RequestCollection receiver))
-                    receiver.SetDecision(pair.Key, Player, Decision.SenderLeft, out _, out _);
-        }
-
-        #endregion
-        #region Dispose
-
-        public void Dispose()
-        {
-            foreach (var pair1 in Inbox)
-                foreach (var pair2 in pair1.Value)
-                    SetDecision(pair1.Key, pair2.Key, Decision.Disposed, out _, out _);
-            foreach (var pair in Outbox)
-                if (RequestsManager.RequestCollections.TryGetValue(pair.Value.Player,
-                        out RequestCollection receiver))
-                    receiver.SetDecision(pair.Key, Player, Decision.Disposed, out _, out _);
-        }
-
-        #endregion
         #region BrokeCondition
 
         public void BrokeCondition(Type Type)
         {
-            foreach (var pair1 in Inbox)
+            foreach (var pair1 in this.Inbox)
                 foreach (var pair2 in pair1.Value)
                     if (pair2.Value.ReceiverConditions.Any(c => (c.GetType() == Type)))
                         SetDecision(pair1.Key, pair2.Key, Decision.ReceiverFailedCondition, out _, out _);
-            foreach (var pair in Outbox)
-                if (pair.Value.Request.SenderConditions.Any(c => (c.GetType() == Type))
-                        && RequestsManager.RequestCollections.TryGetValue(pair.Value.Player,
-                        out RequestCollection receiver))
-                    receiver.SetDecision(pair.Key, Player, Decision.SenderFailedCondition, out _, out _);
+            foreach (var pair1 in this.Outbox)
+                foreach (var pair2 in pair1.Value)
+                    if (pair2.Value.SenderConditions.Any(c => (c.GetType() == Type))
+                            && RequestsManager.RequestCollections.TryGetValue(pair2.Key,
+                            out RequestCollection receiverCollection))
+                        receiverCollection.SetDecision(pair1.Key, Player,
+                            Decision.SenderFailedCondition, out _, out _);
         }
 
         #endregion
@@ -128,20 +101,46 @@ namespace RequestsManagerAPI
         #region GetDecision
 
         public async Task<(Decision Decision, ICondition BrokenCondition)> GetDecision(string Key,
-            object Sender, ICondition[] SenderConditions, ICondition[] ReceiverConditions,
-            string AnnounceText, DecisionDelegate OnDecision)
+            object Sender, ICondition[] SenderConditions, ICondition[] ReceiverConditions)
         {
             if (Key is null)
                 throw new ArgumentNullException(nameof(Key));
             if (Sender is null)
                 throw new ArgumentNullException(nameof(Sender));
+            if (!RequestConfigurations.TryGetValue(Key, out RequestConfiguration configuration))
+                throw new KeyNotConfiguredException(Key);
+            if (Sender.Equals(Player))
+            {
+                RequestsManager.SendMessage?.Invoke(Sender, "You cannot request yourself.", 255, 0, 0);
+                return (Decision.RequestedOwnPlayer, null);
+            }
 
+            Key = Key.ToLower();
+            string announceText = configuration.AnnounceTextFormat
+                .Replace("{KEY}", Key)
+                .Replace("{SENDER}", RequestsManager.GetPlayerNameFunc(Sender))
+                .Replace("{RECEIVER}", RequestsManager.GetPlayerNameFunc(Player));
             RequestCollection senderCollection = RequestsManager.RequestCollections[Sender];
-            Request request = new Request(SenderConditions, ReceiverConditions, AnnounceText, OnDecision);
+            Request request = new Request(SenderConditions, ReceiverConditions, announceText);
             Inbox.TryAdd(Key, new ConcurrentDictionary<object, Request>());
-            if (!senderCollection.Outbox.TryAdd(Key, (Player, request))
-                    || !Inbox[Key].TryAdd(Sender, request))
-                return (Decision.AlreadySent, null);
+            senderCollection.Outbox.TryAdd(Key, new ConcurrentDictionary<object, Request>());
+            if (!configuration.AllowSendingMultipleRequests)
+            {
+                object sentTo = senderCollection.Outbox[Key].FirstOrDefault().Key;
+                if (sentTo != null)
+                {
+                    RequestsManager.SendMessage?.Invoke(Sender, "You have already sent " +
+                        $"{Key} request to {RequestsManager.GetPlayerNameFunc(sentTo)}.", 255, 0, 0);
+                    return (Decision.AlreadySentToDifferentPlayer, null);
+                }
+            }
+            if (!senderCollection.Outbox[Key].TryAdd(Player, request)
+                || !Inbox[Key].TryAdd(Sender, request))
+            {
+                RequestsManager.SendMessage?.Invoke(Sender, "You have already sent " +
+                    $"{Key} request to {RequestsManager.GetPlayerNameFunc(Player)}.", 255, 0, 0);
+                return (Decision.AlreadySentToSamePlayer, null);
+            }
 
             if (SenderConditions != null)
                 foreach (ICondition condition in SenderConditions)
@@ -149,12 +148,20 @@ namespace RequestsManagerAPI
             if (ReceiverConditions != null)
                 foreach (ICondition condition in ReceiverConditions)
                     Conditions.TryAdd(condition, 0);
-            RequestsManager.SendMessage?.Invoke(Sender, $"Sent {Key} request", 0, 128, 0);
-            RequestsManager.SendMessage?.Invoke(Player, AnnounceText, 255, 69, 0);
+            RequestsManager.SendMessage?.Invoke(Sender, $"Sent {Key} request.", 0, 128, 0);
+            RequestsManager.SendMessage?.Invoke(Player, announceText, 255, 69, 0);
 
             Decision decision = await request.Source.Task;
 
             Inbox[Key].TryRemove(Sender, out _);
+            // TODO: make this thread-safe
+            if (Inbox[Key].Count == 0)
+                Inbox.TryRemove(Key, out _);
+            foreach (var pair in senderCollection.Outbox[Key])
+                if (!pair.Value.Equals(request)
+                        && RequestsManager.RequestCollections.TryGetValue(pair.Key,
+                        out RequestCollection receiverCollection))
+                    receiverCollection.SetDecision(Key, Sender, Decision.AcceptedAnother, out _, out _);
             senderCollection.Outbox.TryRemove(Key, out _);
             if (SenderConditions != null)
                 foreach (ICondition condition in SenderConditions)
@@ -166,6 +173,22 @@ namespace RequestsManagerAPI
         }
 
         #endregion
+        #region SetGlobalDecision
+
+        public void SetGlobalDecision(Decision Inbox, Decision Outbox)
+        {
+            foreach (var pair1 in this.Inbox)
+                foreach (var pair2 in pair1.Value)
+                    SetDecision(pair1.Key, pair2.Key, Inbox, out _, out _);
+            foreach (var pair1 in this.Outbox)
+                foreach (var pair2 in pair1.Value)
+                    if (RequestsManager.RequestCollections.TryGetValue(pair2.Key,
+                            out RequestCollection receiverCollection))
+                        receiverCollection.SetDecision(pair1.Key, Player, Outbox, out _, out _);
+        }
+
+        #endregion
+
         #region SetDecision
 
         public RequestResult SetDecision(string Key, object Sender,
@@ -174,6 +197,7 @@ namespace RequestsManagerAPI
             RealKey = null;
             RealSender = null;
             ConcurrentDictionary<object, Request> inbox;
+
             // ?
             if (Key == null)
             {
@@ -181,22 +205,29 @@ namespace RequestsManagerAPI
                     return RequestResult.NotSpecifiedRequest;
                 Key = Inbox.FirstOrDefault().Key;
             }
+            else
+                Key = Key.ToLower();
+            RealKey = Key;
+
             if (Sender == null)
             {
-                if ((Key == null) || !Inbox.TryGetValue(Key, out inbox))
+                if (Key == null)
                     return RequestResult.NoRequests;
-                if (inbox.Count > 1)
+                else if (!Inbox.TryGetValue(Key, out inbox))
+                    return RequestResult.InvalidRequest;
+                else if (inbox.Count > 1)
                     return RequestResult.NotSpecifiedRequest;
-                Sender = inbox.FirstOrDefault().Key;
+                else
+                    Sender = inbox.FirstOrDefault().Key;
             }
+            RealSender = Sender;
 
-            if ((Key == null) || (Sender == null) || !Inbox.TryGetValue(Key, out inbox))
+            if ((Key == null) || (Sender == null))
                 return RequestResult.NoRequests;
-            if (!inbox.TryRemove(Sender, out Request request))
+            if (!Inbox.TryGetValue(Key, out inbox)
+                    || !inbox.TryRemove(Sender, out Request request))
                 return RequestResult.InvalidRequest;
 
-            RealKey = Key;
-            RealSender = Sender;
             #region Annouce
 
             string senderName = RequestsManager.GetPlayerNameFunc.Invoke(Sender);
@@ -208,6 +239,10 @@ namespace RequestsManagerAPI
                         $"{receiverName} accepted your {Key} request.", 0, 128, 0);
                     RequestsManager.SendMessage?.Invoke(Player,
                         $"Accepted {Key} request from player {senderName}.", 0, 128, 0);
+                    break;
+                case Decision.AcceptedAnother:
+                    RequestsManager.SendMessage?.Invoke(Player,
+                        $"{senderName} accepted another {Key} request.", 255, 0, 0);
                     break;
                 case Decision.Refused:
                     RequestsManager.SendMessage?.Invoke(Sender,
@@ -247,10 +282,6 @@ namespace RequestsManagerAPI
                     RequestsManager.SendMessage?.Invoke(Sender,
                         $"{receiverName} refused {Key} request by leaving.", 255, 0, 0);
                     break;
-                case Decision.AlreadySent:
-                    RequestsManager.SendMessage?.Invoke(Sender,
-                        $"You have already sent {Key} request to {receiverName}.", 255, 0, 0);
-                    break;
                 case Decision.Expired:
                     RequestsManager.SendMessage?.Invoke(Sender,
                         $"Request '{Key}' for {receiverName} has expired.", 255, 0, 0);
@@ -260,7 +291,6 @@ namespace RequestsManagerAPI
             }
 
             #endregion
-            request.OnDecision?.Invoke(Sender, Player, Decision);
             request.Source.SetResult(Decision);
             return RequestResult.Success;
         }
@@ -268,25 +298,42 @@ namespace RequestsManagerAPI
         #endregion
         #region Cancel
 
-        public RequestResult SenderCancelled(string Key, out string RealKey, out object Receiver)
+        public RequestResult SenderCancelled(string Key, object Receiver,
+            out string RealKey, out object RealReceiver)
         {
             RealKey = null;
-            Receiver = null;
+            RealReceiver = null;
+
             if (Key == null)
             {
                 if (Outbox.Count > 1)
                     return RequestResult.NotSpecifiedRequest;
                 Key = Outbox.FirstOrDefault().Key;
             }
+            else
+                Key = Key.ToLower();
+            RealKey = Key;
 
-            if ((Key == null)
-                    || !Outbox.TryGetValue(Key, out (object Player, Request) request)
-                    || !RequestsManager.RequestCollections.TryGetValue(request.Player,
-                    out RequestCollection receiver))
+            if (Receiver == null)
+            {
+                if (Key == null)
+                    return RequestResult.NoRequests;
+                else if (!Outbox.TryGetValue(Key, out var outbox))
+                    return RequestResult.InvalidRequest;
+                else if (outbox.Count > 1)
+                    return RequestResult.NotSpecifiedRequest;
+                else
+                    Receiver = outbox.FirstOrDefault().Key;
+            }
+            RealReceiver = Receiver;
+
+            if ((Key == null) || (Receiver == null))
                 return RequestResult.NoRequests;
+            if (!RequestsManager.RequestCollections.TryGetValue(Receiver,
+                    out RequestCollection receiverCollection))
+                return RequestResult.InvalidRequest;
 
-            Receiver = receiver.Player;
-            return receiver.SetDecision(Key, Player, Decision.Cancelled, out RealKey, out _);
+            return receiverCollection.SetDecision(Key, Player, Decision.Cancelled, out _, out _);
         }
 
         #endregion

@@ -44,8 +44,10 @@
   <ItemGroup>
     <Compile Include="Condition.cs" />
     <Compile Include="Decision.cs" />
+    <Compile Include="KeyNotConfiguredException.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RequestCollection.cs" />
+    <Compile Include="RequestConfiguration.cs" />
     <Compile Include="RequestsManager.cs" />
     <Compile Include="RequestResult.cs" />
   </ItemGroup>

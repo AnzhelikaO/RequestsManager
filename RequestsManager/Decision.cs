@@ -3,14 +3,17 @@
     public enum Decision
     {
         Accepted,
+        AcceptedAnother,
         Refused,
         Cancelled,
         Disposed,
+        RequestedOwnPlayer,
         SenderFailedCondition,
         ReceiverFailedCondition,
         SenderLeft,
         ReceiverLeft,
-        AlreadySent,
+        AlreadySentToSamePlayer,
+        AlreadySentToDifferentPlayer,
         Expired
     }
 }
