@@ -29,83 +29,90 @@ namespace RequestsManagerPlugin
 
         public override void Initialize()
         {
-            RequestsManager.AddConfiguration("tp1", new RequestConfiguration(false,
-                $"{{SENDER}} requested teleportation. " + RequestCommands.DecisionMessageFormat));
-            RequestsManager.AddConfiguration("tp2", new RequestConfiguration(true,
-                $"{{SENDER}} requested teleportation. " + RequestCommands.DecisionMessageFormat));
+            TempDebug();
 
-            Commands.ChatCommands.Add(new Command("tp1", (async args =>
-            {
-                if (args.Parameters.Count != 1)
-                {
-                    args.Player.SendErrorMessage("/tp1 <player>");
-                    return;
-                }
-
-                string name = args.Parameters[0];
-                List<TSPlayer> plrs = TShock.Utils.FindPlayer(name);
-                if (plrs.Count == 0)
-                    args.Player.SendErrorMessage($"Invalid player '{name}'.");
-                else if (plrs.Count > 1)
-                    TShock.Utils.SendMultipleMatchError(args.Player, plrs.Select(p => p.Name));
-                else
-                {
-                    TSPlayer player = plrs[0];
-                    (Decision Decision, ICondition BrokenCondition) =
-                        await RequestsManager.GetDecision(player, args.Player, "tp1");
-                    if (Decision == Decision.Accepted)
-                        args.Player.Teleport(player.X, player.Y);
-                }
-            }), "tp1"));
-            Commands.ChatCommands.Add(new Command("tp2", (async args =>
-            {
-                if (args.Parameters.Count != 1)
-                {
-                    args.Player.SendErrorMessage("/tp2 <player>");
-                    return;
-                }
-
-                string name = args.Parameters[0];
-                List<TSPlayer> plrs = TShock.Utils.FindPlayer(name);
-                if (plrs.Count == 0)
-                    args.Player.SendErrorMessage($"Invalid player '{name}'.");
-                else if (plrs.Count > 1)
-                    TShock.Utils.SendMultipleMatchError(args.Player, plrs.Select(p => p.Name));
-                else
-                {
-                    TSPlayer player = plrs[0];
-                    (Decision Decision, ICondition BrokenCondition) =
-                        await RequestsManager.GetDecision(player, args.Player, "tp1");
-                    if (Decision == Decision.Accepted)
-                        args.Player.Teleport(player.X, player.Y);
-                }
-            }), "tp2"));
-
-            /*
-            Commands.ChatCommands.Add(new Command("rmtzt", (async args =>
-            {
-                _ = System.Threading.Tasks.Task.Delay(2000).ContinueWith(_ =>
-                    RequestsManager.SetDecision(args.Player, "tzt", Decision.Accepted));
-                Console.WriteLine((await RequestsManager.GetDecision(args.Player, "tzt")).Decision);
-            }), "rmtzt"));
-            */
             RequestCommands.Register();
             RequestsManager.SendMessage += OnSendMessage;
             RequestsManager.Initialize(o => ((o is TSPlayer player) ? player?.Name : null));
             ServerApi.Hooks.ServerJoin.Register(this, OnServerJoin, int.MinValue);
             ServerApi.Hooks.ServerLeave.Register(this, OnServerLeave);
-            return;
-            GetDataHandlers.KillMe.Register(OnKillMe);
-            GetDataHandlers.PlayerUpdate.Register(OnPlayerUpdate);
-            GetDataHandlers.PlayerHP.Register(OnPlayerHP);
-            GetDataHandlers.PlayerSlot.Register(OnPlayerSlot);
+            GetDataHandlers.KillMe += OnKillMe;
+            GetDataHandlers.PlayerUpdate += OnPlayerUpdate;
+            GetDataHandlers.PlayerHP += OnPlayerHP;
+            GetDataHandlers.PlayerSlot += OnPlayerSlot;
             PlayerHooks.PlayerPostLogin += OnPlayerPostLogin;
             PlayerHooks.PlayerLogout += OnPlayerLogout;
-            GetDataHandlers.PlayerMana.Register(OnPlayerMana);
-            GetDataHandlers.TogglePvp.Register(OnTogglePvp);
-            GetDataHandlers.PlayerTeam.Register(OnPlayerTeam);
+            GetDataHandlers.PlayerMana += OnPlayerMana;
+            GetDataHandlers.TogglePvp += OnTogglePvp;
+            GetDataHandlers.PlayerTeam += OnPlayerTeam;
             ServerApi.Hooks.NetSendData.Register(this, OnSendData, int.MinValue);
         }
+
+        #region TempDebug
+
+        private void TempDebug()
+        {
+            RequestsManager.AddConfiguration("tp1", new RequestConfiguration(false,
+                $"{{SENDER}} requested teleportation. " + RequestCommands.DecisionMessageFormat));
+            RequestsManager.AddConfiguration("tp2", new RequestConfiguration(true,
+                $"{{SENDER}} requested teleportation. " + RequestCommands.DecisionMessageFormat));
+            #region GetPlayer
+
+            bool GetPlayer(CommandArgs args, int num, out TSPlayer Player)
+            {
+                Player = null;
+                if (args.Parameters.Count == 1)
+                {
+                    string name = args.Parameters[0];
+                    List<TSPlayer> plrs = TShock.Utils.FindPlayer(name);
+                    if (plrs.Count == 0)
+                        args.Player.SendErrorMessage($"Invalid player '{name}'.");
+                    else if (plrs.Count > 1)
+                        TShock.Utils.SendMultipleMatchError(args.Player, plrs.Select(p => p.Name));
+                    else
+                        Player = plrs[0];
+                }
+                else
+                    args.Player.SendErrorMessage($"/tp{num} <player>");
+                return (Player != null);
+            }
+
+            #endregion
+
+            Commands.ChatCommands.Add(new Command("tp1", (async args =>
+            {
+                if (!GetPlayer(args, 1, out TSPlayer player))
+                    return;
+
+                (Decision Decision, ICondition BrokenCondition) =
+                    await RequestsManager.GetDecision(player, args.Player, "tp1");
+                if (Decision == Decision.Accepted)
+                    args.Player.Teleport(player.X, player.Y);
+            }), "tp1"));
+            Commands.ChatCommands.Add(new Command("tp2", (async args =>
+            {
+                if (!GetPlayer(args, 2, out TSPlayer player))
+                    return;
+
+                (Decision Decision, ICondition BrokenCondition) =
+                    await RequestsManager.GetDecision(player, args.Player, "tp2");
+                if (Decision == Decision.Accepted)
+                    args.Player.Teleport(player.X, player.Y);
+            }), "tp2"));
+            Commands.ChatCommands.Add(new Command("tp3", (async args =>
+            {
+                if (!GetPlayer(args, 3, out TSPlayer player))
+                    return;
+
+                (Decision Decision, ICondition BrokenCondition) =
+                    await RequestsManager.GetDecision(player, args.Player, "tp2",
+                    new ICondition[] { new LoggedInCondition(true) });
+                if (Decision == Decision.Accepted)
+                    args.Player.Teleport(player.X, player.Y);
+            }), "tp3"));
+        }
+
+        #endregion
 
         #endregion
         #region Dispose
@@ -119,15 +126,15 @@ namespace RequestsManagerPlugin
                 RequestsManager.Dispose();
                 ServerApi.Hooks.ServerJoin.Deregister(this, OnServerJoin);
                 ServerApi.Hooks.ServerLeave.Deregister(this, OnServerLeave);
-                GetDataHandlers.KillMe.UnRegister(OnKillMe);
-                GetDataHandlers.PlayerUpdate.UnRegister(OnPlayerUpdate);
-                GetDataHandlers.PlayerHP.UnRegister(OnPlayerHP);
-                GetDataHandlers.PlayerSlot.UnRegister(OnPlayerSlot);
+                GetDataHandlers.KillMe -= OnKillMe;
+                GetDataHandlers.PlayerUpdate -= OnPlayerUpdate;
+                GetDataHandlers.PlayerHP -= OnPlayerHP;
+                GetDataHandlers.PlayerSlot -= OnPlayerSlot;
                 PlayerHooks.PlayerPostLogin -= OnPlayerPostLogin;
                 PlayerHooks.PlayerLogout -= OnPlayerLogout;
-                GetDataHandlers.PlayerMana.UnRegister(OnPlayerMana);
-                GetDataHandlers.TogglePvp.UnRegister(OnTogglePvp);
-                GetDataHandlers.PlayerTeam.UnRegister(OnPlayerTeam);
+                GetDataHandlers.PlayerMana -= OnPlayerMana;
+                GetDataHandlers.TogglePvp -= OnTogglePvp;
+                GetDataHandlers.PlayerTeam -= OnPlayerTeam;
                 ServerApi.Hooks.NetSendData.Deregister(this, OnSendData);
             }
             base.Dispose(disposing);

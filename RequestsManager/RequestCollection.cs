@@ -37,6 +37,7 @@ namespace RequestsManagerAPI
             }
         }
 
+        private object Locker = new object();
         private ConcurrentDictionary<string, ConcurrentDictionary<object, Request>> Inbox =
             new ConcurrentDictionary<string, ConcurrentDictionary<object, Request>>();
         private ConcurrentDictionary<string, ConcurrentDictionary<object, Request>> Outbox =
@@ -109,11 +110,13 @@ namespace RequestsManagerAPI
                 throw new ArgumentNullException(nameof(Sender));
             if (!RequestConfigurations.TryGetValue(Key, out RequestConfiguration configuration))
                 throw new KeyNotConfiguredException(Key);
+            /*
             if (Sender.Equals(Player))
             {
                 RequestsManager.SendMessage?.Invoke(Sender, "You cannot request yourself.", 255, 0, 0);
                 return (Decision.RequestedOwnPlayer, null);
             }
+            */
 
             Key = Key.ToLower();
             string announceText = configuration.AnnounceTextFormat
@@ -153,10 +156,12 @@ namespace RequestsManagerAPI
 
             Decision decision = await request.Source.Task;
 
-            Inbox[Key].TryRemove(Sender, out _);
-            // TODO: make this thread-safe
-            if (Inbox[Key].Count == 0)
-                Inbox.TryRemove(Key, out _);
+            lock (Locker)
+            {
+                Inbox[Key].TryRemove(Sender, out _);
+                if (Inbox[Key].Count == 0)
+                    Inbox.TryRemove(Key, out _);
+            }
             foreach (var pair in senderCollection.Outbox[Key])
                 if (!pair.Value.Equals(request)
                         && RequestsManager.RequestCollections.TryGetValue(pair.Key,
