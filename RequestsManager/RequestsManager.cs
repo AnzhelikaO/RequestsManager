@@ -18,6 +18,7 @@ namespace RequestsManagerAPI
         internal static string CommandSpecifier;
         internal static ConcurrentDictionary<object, RequestCollection> RequestCollections =
             new ConcurrentDictionary<object, RequestCollection>();
+        internal static object EmptySender = new object();
         private static Timer AnnouceTimer = new Timer(2500) { AutoReset = true };
         public static string[] RequestKeys => RequestCollection.RequestConfigurations.Keys.ToArray();
         
@@ -119,12 +120,28 @@ namespace RequestsManagerAPI
 
         #endregion
 
+        #region SendMessage
+
+        internal static void TrySendMessage(object Player, string Text, byte R, byte G, byte B)
+        {
+            if (!Player.Equals(EmptySender))
+                SendMessage?.Invoke(Player, Text, R, G, B);
+        }
+
+        #endregion
+
         #region GetDecision
 
         public static async Task<(Decision Decision, ICondition BrokenCondition)> GetDecision(object Player,
                 object Sender, string Key, string AnnounceText, ICondition[] SenderConditions = null,
                 ICondition[] ReceiverConditions = null, string DecisionCommandMessage = null) =>
             await RequestCollections[Player].GetDecision(Key, Sender, AnnounceText,
+                SenderConditions, ReceiverConditions, DecisionCommandMessage);
+
+        public static async Task<(Decision Decision, ICondition BrokenCondition)> GetDecision(object Player,
+                string Key, string AnnounceText, ICondition[] SenderConditions = null,
+                ICondition[] ReceiverConditions = null, string DecisionCommandMessage = null) =>
+            await RequestCollections[Player].GetDecision(Key, EmptySender, AnnounceText,
                 SenderConditions, ReceiverConditions, DecisionCommandMessage);
 
         #endregion

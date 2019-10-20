@@ -117,7 +117,7 @@ namespace RequestsManagerPlugin
 
             RequestResult result = RequestsManager.SetDecision(Args.Player, key,
                 sender, Decision, out string realKey, out object realSender);
-            string name = (sender?.Name ?? ((TSPlayer)realSender)?.Name);
+            string name = (sender?.Name ?? ((realSender is TSPlayer plr) ? plr.Name : null));
             switch (result)
             {
                 case RequestResult.NoRequests:

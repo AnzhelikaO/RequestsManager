@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Terraria;
 using TerrariaApi.Server;
 using TShockAPI;
@@ -32,8 +33,15 @@ namespace RequestsManagerPlugin
             TempDebug();
 
             RequestCommands.Register();
-            RequestsManager.SendMessage += OnSendMessage;
+            RequestsManager.SendMessage = OnSendMessage;
             RequestsManager.Initialize(o => ((o is TSPlayer player) ? player?.Name : null),
+                ((f, s) =>
+                {
+                    if ((f is TSPlayer blocker) && (s is TSPlayer blocked))
+                        return (GetDynamicPermission(blocker) >= GetDynamicPermission(blocked));
+                    else
+                        return false;
+                }),
                 TShock.Config.CommandSpecifier);
             ServerApi.Hooks.ServerJoin.Register(this, OnServerJoin, int.MinValue);
             ServerApi.Hooks.ServerLeave.Register(this, OnServerLeave);
@@ -55,6 +63,7 @@ namespace RequestsManagerPlugin
         {
             RequestsManager.AddConfiguration("tp1", new RequestConfiguration(false, false, false));
             RequestsManager.AddConfiguration("tp2", new RequestConfiguration(true, false, false));
+            RequestsManager.AddConfiguration("tp4", new RequestConfiguration(false, false, false));
             #region GetPlayer
 
             bool GetPlayer(CommandArgs args, int num, out TSPlayer Player)
@@ -112,6 +121,14 @@ namespace RequestsManagerPlugin
                 if (Decision == Decision.Accepted)
                     args.Player.Teleport(player.X, player.Y);
             }), "tp3"));
+            Commands.ChatCommands.Add(new Command("tp4", (async args =>
+            {
+                (Decision decision, _) =
+                    await RequestsManager.GetDecision(args.Player, "tp4", "OK_4?", null, null,
+                    "Type /+ or /-   !!!!!!!111111111111111111111111111111111111111111111111");
+                if (decision == Decision.Accepted)
+                    args.Player.SendSuccessMessage("OK_4.");
+            }), "tp4"));
         }
 
         #endregion
@@ -124,7 +141,7 @@ namespace RequestsManagerPlugin
             if (disposing)
             {
                 RequestCommands.Deregister();
-                RequestsManager.SendMessage += OnSendMessage;
+                RequestsManager.SendMessage -= OnSendMessage;
                 RequestsManager.Dispose();
                 ServerApi.Hooks.ServerJoin.Deregister(this, OnServerJoin);
                 ServerApi.Hooks.ServerLeave.Deregister(this, OnServerLeave);
@@ -140,6 +157,29 @@ namespace RequestsManagerPlugin
                 ServerApi.Hooks.NetSendData.Deregister(this, OnSendData);
             }
             base.Dispose(disposing);
+        }
+
+        #endregion
+
+        #region GetDynamicPermission
+
+        private static readonly Regex PermissionRegex =
+            new Regex(@"^requests\.rank\.(?<rank>\d+|\*)$",
+                (RegexOptions.IgnoreCase | RegexOptions.Compiled));
+        private static int GetDynamicPermission(TSPlayer Player)
+        {
+            int max = 0;
+            foreach (string permission in Player.Group.TotalPermissions)
+            {
+                Match match = PermissionRegex.Match(permission);
+                if (match.Success)
+                {
+                    if (!int.TryParse(match.Groups["rank"].Value, out int rank))
+                        rank = int.MaxValue;
+                    max = Math.Max(max, rank);
+                }
+            }
+            return max;
         }
 
         #endregion

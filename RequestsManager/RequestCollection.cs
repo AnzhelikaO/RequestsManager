@@ -42,9 +42,9 @@ namespace RequestsManagerAPI
             {
                 if (AnnounceText != null)
                 {
-                    RequestsManager.SendMessage?.Invoke(Player, AnnounceText, 255, 69, 0);
+                    RequestsManager.TrySendMessage(Player, AnnounceText, 255, 69, 0);
                     if (DecisionCommandMessage != null)
-                        RequestsManager.SendMessage?.Invoke(Player, DecisionCommandMessage, 255, 69, 0);
+                        RequestsManager.TrySendMessage(Player, DecisionCommandMessage, 255, 69, 0);
                 }
             }
         }
@@ -125,16 +125,18 @@ namespace RequestsManagerAPI
                 throw new ArgumentNullException(nameof(Sender));
             if (!RequestConfigurations.TryGetValue(Key, out RequestConfiguration configuration))
                 throw new KeyNotConfiguredException(Key);
+            bool emptySender = Sender.Equals(RequestsManager.EmptySender);
             if (!configuration.AllowSendingToMyself && Sender.Equals(Player))
             {
-                RequestsManager.SendMessage?.Invoke(Sender, "You cannot request yourself.", 255, 0, 0);
+                RequestsManager.TrySendMessage(Sender, "You cannot request yourself.", 255, 0, 0);
                 return (Decision.RequestedOwnPlayer, null);
             }
 
-            if (Block.TryGetValue(Key, out var block)
+            if (!emptySender
+                && Block.TryGetValue(Key, out var block)
                 && block.TryGetValue(Sender, out _))
             {
-                RequestsManager.SendMessage?.Invoke(Sender, RequestsManager.GetPlayerNameFunc(Player) +
+                RequestsManager.TrySendMessage(Sender, RequestsManager.GetPlayerNameFunc(Player) +
                     $" blocked your {Key} requests.", 255, 0, 0);
                 return (Decision.Blocked, null);
             }
@@ -143,31 +145,39 @@ namespace RequestsManagerAPI
             {
                 string specifier = RequestsManager.CommandSpecifier;
                 string key = ((Key.Contains(" ") ? $"\"{Key}\"" : Key));
-                string senderName = RequestsManager.GetPlayerNameFunc(Sender);
-                DecisionCommandMessage = $"Type «{specifier}+ {key} {senderName}» to accept " +
-                    $"or «{specifier}- {key} {senderName}» to refuse request.";
+                if (emptySender)
+                    DecisionCommandMessage = $"Type «{specifier}+ {key}» to accept " +
+                        $"or «{specifier}- {key}» to refuse request.";
+                else
+                {
+                    string senderName = RequestsManager.GetPlayerNameFunc(Sender);
+                    DecisionCommandMessage = $"Type «{specifier}+ {key} {senderName}» to accept " +
+                        $"or «{specifier}- {key} {senderName}» to refuse request.";
+                }
             }
 
             Key = Key.ToLower();
-            RequestCollection senderCollection = RequestsManager.RequestCollections[Sender];
+            RequestCollection senderCollection = (emptySender
+                ? null
+                : RequestsManager.RequestCollections[Sender]);
             Request request = new Request(SenderConditions,
                 ReceiverConditions, AnnounceText, DecisionCommandMessage);
             Inbox.TryAdd(Key, new ConcurrentDictionary<object, Request>());
-            senderCollection.Outbox.TryAdd(Key, new ConcurrentDictionary<object, Request>());
+            senderCollection?.Outbox.TryAdd(Key, new ConcurrentDictionary<object, Request>());
             if (!configuration.AllowSendingMultipleRequests)
             {
-                object sentTo = senderCollection.Outbox[Key].FirstOrDefault().Key;
+                object sentTo = senderCollection?.Outbox[Key].FirstOrDefault().Key;
                 if (sentTo != null)
                 {
-                    RequestsManager.SendMessage?.Invoke(Sender, "You have already sent " +
+                    RequestsManager.TrySendMessage(Sender, "You have already sent " +
                         $"{Key} request to {RequestsManager.GetPlayerNameFunc(sentTo)}.", 255, 0, 0);
                     return (Decision.AlreadySentToDifferentPlayer, null);
                 }
             }
-            if (!senderCollection.Outbox[Key].TryAdd(Player, request)
+            if ((!emptySender && !senderCollection.Outbox[Key].TryAdd(Player, request))
                 || !Inbox[Key].TryAdd(Sender, request))
             {
-                RequestsManager.SendMessage?.Invoke(Sender, "You have already sent " +
+                RequestsManager.TrySendMessage(Sender, "You have already sent " +
                     $"{Key} request to {RequestsManager.GetPlayerNameFunc(Player)}.", 255, 0, 0);
                 return (Decision.AlreadySentToSamePlayer, null);
             }
@@ -178,7 +188,7 @@ namespace RequestsManagerAPI
             if (ReceiverConditions != null)
                 foreach (ICondition condition in ReceiverConditions)
                     Conditions.TryAdd(condition, 0);
-            RequestsManager.SendMessage?.Invoke(Sender, $"Sent {Key} request.", 0, 128, 0);
+            RequestsManager.TrySendMessage(Sender, $"Sent {Key} request.", 0, 128, 0);
             request.Annouce(Player);
 
             Decision decision = await request.Source.Task;
@@ -189,13 +199,13 @@ namespace RequestsManagerAPI
                 if (Inbox[Key].Count == 0)
                     Inbox.TryRemove(Key, out _);
             }
-            if (!configuration.AllowMultiAccept)
+            if (!emptySender && !configuration.AllowMultiAccept)
                 foreach (var pair in senderCollection.Outbox[Key])
                     if (!pair.Value.Equals(request)
                             && RequestsManager.RequestCollections.TryGetValue(pair.Key,
                             out RequestCollection receiverCollection))
                         receiverCollection.SetDecision(Key, Sender, Decision.AcceptedAnother, out _, out _);
-            senderCollection.Outbox.TryRemove(Key, out _);
+            senderCollection?.Outbox.TryRemove(Key, out _);
             if (SenderConditions != null)
                 foreach (ICondition condition in SenderConditions)
                     Conditions.TryRemove(condition, out _);
@@ -263,63 +273,82 @@ namespace RequestsManagerAPI
 
             #region Annouce
 
-            string senderName = RequestsManager.GetPlayerNameFunc.Invoke(Sender);
+            bool emptySender = Sender.Equals(RequestsManager.EmptySender);
+            string senderName = (emptySender ? null : RequestsManager.GetPlayerNameFunc.Invoke(Sender));
             string receiverName = RequestsManager.GetPlayerNameFunc.Invoke(Player);
             switch (Decision)
             {
                 case Decision.Accepted:
-                    RequestsManager.SendMessage?.Invoke(Sender,
+                    RequestsManager.TrySendMessage(Sender,
                         $"{receiverName} accepted your {Key} request.", 0, 128, 0);
-                    RequestsManager.SendMessage?.Invoke(Player,
-                        $"Accepted {Key} request from player {senderName}.", 0, 128, 0);
+                    if (senderName != null)
+                        RequestsManager.TrySendMessage(Player,
+                            $"Accepted {Key} request from player {senderName}.", 0, 128, 0);
+                    else
+                        RequestsManager.TrySendMessage(Player, $"Accepted {Key} request.", 0, 128, 0);
                     break;
                 case Decision.AcceptedAnother:
-                    RequestsManager.SendMessage?.Invoke(Player,
+                    RequestsManager.TrySendMessage(Player,
                         $"{senderName} accepted another {Key} request.", 255, 0, 0);
                     break;
                 case Decision.Refused:
-                    RequestsManager.SendMessage?.Invoke(Sender,
+                    RequestsManager.TrySendMessage(Sender,
                         $"{receiverName} refused your {Key} request.", 255, 0, 0);
-                    RequestsManager.SendMessage?.Invoke(Player,
-                        $"Refused {Key} request from player {senderName}.", 0, 128, 0);
+                    if (senderName != null)
+                        RequestsManager.TrySendMessage(Player,
+                            $"Refused {Key} request from player {senderName}.", 0, 128, 0);
+                    else
+                        RequestsManager.TrySendMessage(Player, $"Refused {Key} request.", 0, 128, 0);
                     break;
                 case Decision.Cancelled:
-                    RequestsManager.SendMessage?.Invoke(Sender,
+                    RequestsManager.TrySendMessage(Sender,
                         $"Cancelled {Key} request to player {receiverName}.", 0, 128, 0);
-                    RequestsManager.SendMessage?.Invoke(Player,
+                    RequestsManager.TrySendMessage(Player,
                         $"{senderName} cancelled {Key} request.", 255, 0, 0);
                     break;
                 case Decision.Disposed:
-                    RequestsManager.SendMessage?.Invoke(Sender,
+                    RequestsManager.TrySendMessage(Sender,
                         $"Your {Key} request to {receiverName} was force cancelled.", 255, 0, 0);
-                    RequestsManager.SendMessage?.Invoke(Player,
-                        $"{senderName}'s {Key} request was force cancelled.", 255, 0, 0);
+                    if (senderName != null)
+                        RequestsManager.TrySendMessage(Player,
+                            $"{senderName}'s {Key} request was force cancelled.", 255, 0, 0);
+                    else
+                        RequestsManager.TrySendMessage(Player,
+                            $"{Key} request was force cancelled.", 255, 0, 0);
                     break;
                 case Decision.SenderFailedCondition:
-                    RequestsManager.SendMessage?.Invoke(Sender,
+                    RequestsManager.TrySendMessage(Sender,
                         $"You no longer fit conditions for {Key} request to {receiverName}.", 255, 0, 0);
-                    RequestsManager.SendMessage?.Invoke(Player,
+                    RequestsManager.TrySendMessage(Player,
                         $"{senderName} no longer fits conditions for {Key} request.", 255, 0, 0);
                     break;
                 case Decision.ReceiverFailedCondition:
-                    RequestsManager.SendMessage?.Invoke(Sender,
+                    RequestsManager.TrySendMessage(Sender,
                         $"{receiverName} no longer fits conditions for {Key} request.", 255, 0, 0);
-                    RequestsManager.SendMessage?.Invoke(Player,
-                        $"You no longer fit conditions for {Key} request from {senderName}.", 255, 0, 0);
+                    if (senderName != null)
+                        RequestsManager.TrySendMessage(Player,
+                            $"You no longer fit conditions for {Key} request from {senderName}.", 255, 0, 0);
+                    else
+                        RequestsManager.TrySendMessage(Player,
+                            $"You no longer fit conditions for {Key} request.", 255, 0, 0);
                     break;
                 case Decision.SenderLeft:
-                    RequestsManager.SendMessage?.Invoke(Player,
+                    RequestsManager.TrySendMessage(Player,
                         $"{senderName} cancelled {Key} request by leaving.", 255, 0, 0);
                     break;
                 case Decision.ReceiverLeft:
-                    RequestsManager.SendMessage?.Invoke(Sender,
+                    RequestsManager.TrySendMessage(Sender,
                         $"{receiverName} refused {Key} request by leaving.", 255, 0, 0);
                     break;
                 case Decision.Expired:
-                    RequestsManager.SendMessage?.Invoke(Sender,
-                        $"Request '{Key}' for {receiverName} has expired.", 255, 0, 0);
-                    RequestsManager.SendMessage?.Invoke(Player,
-                        $"Request '{Key}' from {senderName} has expired.", 255, 0, 0);
+                    RequestsManager.TrySendMessage(Sender,
+                        $"Request {Key} for {receiverName} has expired.", 255, 0, 0);
+                    if (senderName != null)
+                        RequestsManager.TrySendMessage(Player,
+                            $"Request {Key} from {senderName} has expired.", 255, 0, 0);
+                    else
+                        RequestsManager.TrySendMessage(Player,
+                            $"Request {Key} has expired.", 255, 0, 0);
                     break;
             }
 
