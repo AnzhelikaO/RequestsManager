@@ -8,16 +8,6 @@ namespace RequestsManagerPlugin
 {
     public class RequestCommands
     {
-        public static string DecisionMessageFormat
-        {
-            get
-            {
-                string specifier = TShock.Config.CommandSpecifier;
-                return $"Type '{specifier}+ {{KEY}} {{SENDER}}' to accept " +
-                    $"or '{specifier}- {{KEY}} {{SENDER}}' to refuse request.";
-            }
-        }
-
         private static Command[] Commands;
         internal static void Register()
         {
@@ -37,6 +27,11 @@ namespace RequestsManagerPlugin
                 {
                     AllowServer = false,
                     HelpText = $"{TShock.Config.CommandSpecifier}cancel [request] [player]"
+                },
+                new Command(Block, "block")
+                {
+                    AllowServer = false,
+                    HelpText = $"{TShock.Config.CommandSpecifier}block <request> <player>"
                 }
             };
             TShockAPI.Commands.ChatCommands.AddRange(Commands);
@@ -77,6 +72,41 @@ namespace RequestsManagerPlugin
                     Args.Player.SendErrorMessage($"Invalid request name '{realKey}'" +
                         ((name == null) ? "." : $" or player name '{name}'."));
                     break;
+            }
+        }
+
+        private static void Block(CommandArgs args)
+        {
+            if (args.Parameters.Count < 2)
+            {
+                args.Player.SendErrorMessage($"{TShock.Config.CommandSpecifier}block <request> <player>");
+                return;
+            }
+
+            if (!GetKeyAndPlayer(args, out string key, out TSPlayer player))
+                return;
+
+            if (!RequestsManager.RequestKeys.Contains(key))
+            {
+                args.Player.SendErrorMessage($"Invalid request type '{key}'.");
+                return;
+            }
+
+            if (!RequestsManager.CanBlockFunc(args.Player, player))
+            {
+                args.Player.SendErrorMessage($"You cannot block {player.Name}.");
+                return;
+            }
+
+            if (RequestsManager.IsBlocked(args.Player, key, player))
+            {
+                RequestsManager.Block(args.Player, key, player, false);
+                args.Player.SendSuccessMessage($"Allowed {player} to send you {key} requests.");
+            }
+            else
+            {
+                RequestsManager.Block(args.Player, key, player, true);
+                args.Player.SendSuccessMessage($"Forbade {player} to send you {key} requests.");
             }
         }
 

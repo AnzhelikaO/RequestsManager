@@ -8,6 +8,7 @@
         Cancelled,
         Disposed,
         RequestedOwnPlayer,
+        Blocked,
         SenderFailedCondition,
         ReceiverFailedCondition,
         SenderLeft,

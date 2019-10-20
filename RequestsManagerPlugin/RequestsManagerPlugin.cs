@@ -33,7 +33,8 @@ namespace RequestsManagerPlugin
 
             RequestCommands.Register();
             RequestsManager.SendMessage += OnSendMessage;
-            RequestsManager.Initialize(o => ((o is TSPlayer player) ? player?.Name : null));
+            RequestsManager.Initialize(o => ((o is TSPlayer player) ? player?.Name : null),
+                TShock.Config.CommandSpecifier);
             ServerApi.Hooks.ServerJoin.Register(this, OnServerJoin, int.MinValue);
             ServerApi.Hooks.ServerLeave.Register(this, OnServerLeave);
             GetDataHandlers.KillMe += OnKillMe;
@@ -52,10 +53,8 @@ namespace RequestsManagerPlugin
 
         private void TempDebug()
         {
-            RequestsManager.AddConfiguration("tp1", new RequestConfiguration(false,
-                $"{{SENDER}} requested teleportation. " + RequestCommands.DecisionMessageFormat));
-            RequestsManager.AddConfiguration("tp2", new RequestConfiguration(true,
-                $"{{SENDER}} requested teleportation. " + RequestCommands.DecisionMessageFormat));
+            RequestsManager.AddConfiguration("tp1", new RequestConfiguration(false, false, false));
+            RequestsManager.AddConfiguration("tp2", new RequestConfiguration(true, false, false));
             #region GetPlayer
 
             bool GetPlayer(CommandArgs args, int num, out TSPlayer Player)
@@ -85,7 +84,8 @@ namespace RequestsManagerPlugin
                     return;
 
                 (Decision Decision, ICondition BrokenCondition) =
-                    await RequestsManager.GetDecision(player, args.Player, "tp1");
+                    await RequestsManager.GetDecision(player, args.Player, "tp1",
+                    $"{args.Player} requested teleportation.");
                 if (Decision == Decision.Accepted)
                     args.Player.Teleport(player.X, player.Y);
             }), "tp1"));
@@ -95,7 +95,8 @@ namespace RequestsManagerPlugin
                     return;
 
                 (Decision Decision, ICondition BrokenCondition) =
-                    await RequestsManager.GetDecision(player, args.Player, "tp2");
+                    await RequestsManager.GetDecision(player, args.Player, "tp2",
+                    $"{args.Player} requested teleportation.");
                 if (Decision == Decision.Accepted)
                     args.Player.Teleport(player.X, player.Y);
             }), "tp2"));
@@ -106,6 +107,7 @@ namespace RequestsManagerPlugin
 
                 (Decision Decision, ICondition BrokenCondition) =
                     await RequestsManager.GetDecision(player, args.Player, "tp2",
+                    $"{args.Player} requested teleportation.",
                     new ICondition[] { new LoggedInCondition(true) });
                 if (Decision == Decision.Accepted)
                     args.Player.Teleport(player.X, player.Y);

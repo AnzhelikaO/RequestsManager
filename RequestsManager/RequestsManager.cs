@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
 #endregion
@@ -13,15 +14,21 @@ namespace RequestsManagerAPI
     {
         public static SendMessage SendMessage;
         public static Func<object, string> GetPlayerNameFunc { get; private set; }
+        public static Func<object, object, bool> CanBlockFunc { get; private set; }
+        internal static string CommandSpecifier;
         internal static ConcurrentDictionary<object, RequestCollection> RequestCollections =
             new ConcurrentDictionary<object, RequestCollection>();
         private static Timer AnnouceTimer = new Timer(2500) { AutoReset = true };
+        public static string[] RequestKeys => RequestCollection.RequestConfigurations.Keys.ToArray();
         
         #region Initialize
 
-        public static void Initialize(Func<object, string> GetPlayerNameFunc)
+        public static void Initialize(Func<object, string> GetPlayerNameFunc,
+            Func<object, object, bool> CanBlockFunc, string CommandSpecifier)
         {
             RequestsManager.GetPlayerNameFunc = GetPlayerNameFunc;
+            RequestsManager.CanBlockFunc = CanBlockFunc;
+            RequestsManager.CommandSpecifier = CommandSpecifier;
             AnnouceTimer.Elapsed += OnElapsed;
             AnnouceTimer.Start();
         }
@@ -80,6 +87,9 @@ namespace RequestsManagerAPI
         {
             if (RequestCollections.TryRemove(Player, out RequestCollection collection))
                 collection.SetGlobalDecision(Decision.ReceiverLeft, Decision.SenderLeft);
+            foreach (var pair1 in RequestCollections)
+                foreach (var pair2 in pair1.Value.Block)
+                    pair2.Value.TryRemove(Player, out _);
         }
 
         #endregion
@@ -112,9 +122,10 @@ namespace RequestsManagerAPI
         #region GetDecision
 
         public static async Task<(Decision Decision, ICondition BrokenCondition)> GetDecision(object Player,
-                object Sender, string Key, ICondition[] SenderConditions = null,
-                ICondition[] ReceiverConditions = null) =>
-            await RequestCollections[Player].GetDecision(Key, Sender, SenderConditions, ReceiverConditions);
+                object Sender, string Key, string AnnounceText, ICondition[] SenderConditions = null,
+                ICondition[] ReceiverConditions = null, string DecisionCommandMessage = null) =>
+            await RequestCollections[Player].GetDecision(Key, Sender, AnnounceText,
+                SenderConditions, ReceiverConditions, DecisionCommandMessage);
 
         #endregion
         #region SetDecision
@@ -130,6 +141,34 @@ namespace RequestsManagerAPI
                 object Receiver, out string RealKey, out object RealReceiver) =>
             RequestCollections[Player].SenderCancelled(Key, Receiver, out RealKey, out RealReceiver);
 
+        #endregion
+
+        #region IsBlocked
+
+        public static bool IsBlocked(object Blocker, string Key, object Blocked) =>
+            (RequestCollections.TryGetValue(Blocker, out RequestCollection collection)
+            && collection.Block.TryGetValue(Key, out var block)
+            && block.TryGetValue(Blocked, out _));
+
+        #endregion
+        #region Block
+
+        public static bool Block(object Blocker, string Key, object Blocked, bool Block)
+        {
+            if (!RequestCollections.TryGetValue(Blocker, out RequestCollection collection))
+                return false;
+
+            if (Block)
+            {
+                collection.Block.TryAdd(Key, new ConcurrentDictionary<object, byte>());
+                return collection.Block[Key].TryAdd(Blocked, 0);
+            }
+            else if (!collection.Block.TryGetValue(Key, out var block))
+                return false;
+            else
+                return block.TryRemove(Blocked, out _);
+        }
+        
         #endregion
     }
 }

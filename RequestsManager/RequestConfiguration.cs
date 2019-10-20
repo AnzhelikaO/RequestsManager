@@ -3,12 +3,15 @@
     public class RequestConfiguration
     {
         public bool AllowSendingMultipleRequests;
-        public string AnnounceTextFormat;
+        public bool AllowSendingToMyself;
+        public bool AllowMultiAccept;
 
-        public RequestConfiguration(bool AllowSendingMultipleRequests, string AnnounceTextFormat)
+        public RequestConfiguration(bool AllowSendingMultipleRequests, bool AllowSendingToMyself,
+            bool AllowMultiAccept)
         {
             this.AllowSendingMultipleRequests = AllowSendingMultipleRequests;
-            this.AnnounceTextFormat = AnnounceTextFormat;
+            this.AllowSendingToMyself = AllowSendingToMyself;
+            this.AllowMultiAccept = AllowMultiAccept;
         }
     }
 }
