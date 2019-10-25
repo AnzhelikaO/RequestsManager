@@ -61,9 +61,11 @@ namespace RequestsManagerPlugin
 
         private void TempDebug()
         {
-            RequestsManager.AddConfiguration("tp1", new RequestConfiguration(false, false, false));
-            RequestsManager.AddConfiguration("tp2", new RequestConfiguration(true, false, false));
-            RequestsManager.AddConfiguration("tp4", new RequestConfiguration(false, false, false));
+            RequestsManager.AddConfiguration("tp1", new RequestConfiguration(false, false, false, true, 15));
+            RequestsManager.AddConfiguration("tp2", new RequestConfiguration(true, false, false, true, 15));
+            RequestsManager.AddConfiguration("tp4", new RequestConfiguration(false, false, false, true, 15));
+            RequestsManager.AddConfiguration("tp5", new RequestConfiguration(false, false, false, true, 6));
+            RequestsManager.AddConfiguration("tp6", new RequestConfiguration(false, false, false, false, 15));
             #region GetPlayer
 
             bool GetPlayer(CommandArgs args, int num, out TSPlayer Player)
@@ -94,7 +96,7 @@ namespace RequestsManagerPlugin
 
                 (Decision Decision, ICondition BrokenCondition) =
                     await RequestsManager.GetDecision(player, args.Player, "tp1",
-                    $"{args.Player} requested teleportation.");
+                    new Messages(new Message($"{args.Player} requested teleportation.")));
                 if (Decision == Decision.Accepted)
                     args.Player.Teleport(player.X, player.Y);
             }), "tp1"));
@@ -105,7 +107,7 @@ namespace RequestsManagerPlugin
 
                 (Decision Decision, ICondition BrokenCondition) =
                     await RequestsManager.GetDecision(player, args.Player, "tp2",
-                    $"{args.Player} requested teleportation.");
+                    new Messages(new Message($"{args.Player} requested teleportation.")));
                 if (Decision == Decision.Accepted)
                     args.Player.Teleport(player.X, player.Y);
             }), "tp2"));
@@ -116,7 +118,7 @@ namespace RequestsManagerPlugin
 
                 (Decision Decision, ICondition BrokenCondition) =
                     await RequestsManager.GetDecision(player, args.Player, "tp2",
-                    $"{args.Player} requested teleportation.",
+                    new Messages(new Message($"{args.Player} requested teleportation.")),
                     new ICondition[] { new LoggedInCondition(true) });
                 if (Decision == Decision.Accepted)
                     args.Player.Teleport(player.X, player.Y);
@@ -124,11 +126,26 @@ namespace RequestsManagerPlugin
             Commands.ChatCommands.Add(new Command("tp4", (async args =>
             {
                 (Decision decision, _) =
-                    await RequestsManager.GetDecision(args.Player, "tp4", "OK_4?", null, null,
-                    "Type /+ or /-   !!!!!!!111111111111111111111111111111111111111111111111");
+                    await RequestsManager.GetDecision(args.Player, "tp4",
+                    new Messages(new Message("OK_4?"),
+                    new Message("Type /+ or /-   !!!!!!!11111111111111111111111111111111111")));
                 if (decision == Decision.Accepted)
                     args.Player.SendSuccessMessage("OK_4.");
             }), "tp4"));
+            Commands.ChatCommands.Add(new Command("tp4", (async args =>
+            {
+                (Decision decision, _) =
+                    await RequestsManager.GetDecision(args.Player, "tp5", new Messages());
+                if (decision == Decision.Accepted)
+                    args.Player.SendSuccessMessage("OK_5.");
+            }), "tp5"));
+            Commands.ChatCommands.Add(new Command("tp4", (async args =>
+            {
+                (Decision decision, _) =
+                    await RequestsManager.GetDecision(args.Player, "tp6", new Messages());
+                if (decision == Decision.Accepted)
+                    args.Player.SendSuccessMessage("OK_6.");
+            }), "tp6"));
         }
 
         #endregion

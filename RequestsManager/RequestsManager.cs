@@ -124,7 +124,7 @@ namespace RequestsManagerAPI
 
         internal static void TrySendMessage(object Player, string Text, byte R, byte G, byte B)
         {
-            if (!Player.Equals(EmptySender))
+            if ((Text != null) && !Player.Equals(EmptySender))
                 SendMessage?.Invoke(Player, Text, R, G, B);
         }
 
@@ -133,23 +133,24 @@ namespace RequestsManagerAPI
         #region GetDecision
 
         public static async Task<(Decision Decision, ICondition BrokenCondition)> GetDecision(object Player,
-                object Sender, string Key, string AnnounceText, ICondition[] SenderConditions = null,
-                ICondition[] ReceiverConditions = null, string DecisionCommandMessage = null) =>
-            await RequestCollections[Player].GetDecision(Key, Sender, AnnounceText,
-                SenderConditions, ReceiverConditions, DecisionCommandMessage);
-
+                object Sender, string Key, Messages Messages = null, ICondition[] SenderConditions = null,
+                ICondition[] ReceiverConditions = null) =>
+            await RequestCollections[Player].GetDecision(Key, Sender,
+                Messages, SenderConditions, ReceiverConditions);
+        
         public static async Task<(Decision Decision, ICondition BrokenCondition)> GetDecision(object Player,
-                string Key, string AnnounceText, ICondition[] SenderConditions = null,
-                ICondition[] ReceiverConditions = null, string DecisionCommandMessage = null) =>
-            await RequestCollections[Player].GetDecision(Key, EmptySender, AnnounceText,
-                SenderConditions, ReceiverConditions, DecisionCommandMessage);
+                string Key, Messages Messages, ICondition[] SenderConditions = null,
+                ICondition[] ReceiverConditions = null) =>
+            await RequestCollections[Player].GetDecision(Key, EmptySender,
+                Messages, SenderConditions, ReceiverConditions);
 
         #endregion
         #region SetDecision
 
-        public static RequestResult SetDecision(object Player, string Key,
-                object Sender, Decision Decision, out string RealKey, out object RealSender) =>
-            RequestCollections[Player].SetDecision(Key, Sender, Decision, out RealKey, out RealSender);
+        public static RequestResult SetDecision(object Player, string Key, object Sender,
+                Decision Decision, out string RealKey, out object RealSender, Messages Messages = null) =>
+            RequestCollections[Player].SetDecision(Key, Sender,
+                Decision, out RealKey, out RealSender, Messages);
 
         #endregion
         #region SenderCancelled

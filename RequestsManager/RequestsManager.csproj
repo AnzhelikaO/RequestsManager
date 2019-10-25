@@ -42,6 +42,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Message.cs" />
+    <Compile Include="Messages.cs" />
     <Compile Include="Condition.cs" />
     <Compile Include="Decision.cs" />
     <Compile Include="KeyNotConfiguredException.cs" />
