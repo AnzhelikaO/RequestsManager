@@ -162,8 +162,8 @@ namespace RequestsManagerAPI
             (
                 SenderConditions,
                 ReceiverConditions,
-                Messages.GetMessage(MessageType.AnnounceInbox, Player, Sender, Key),
-                Messages.GetMessage(MessageType.DecisionCommand, Player, Sender, Key),
+                Messages.GetMessage(MessageType.AnnounceInbox, Sender, Player, Key),
+                Messages.GetMessage(MessageType.DecisionCommand, Sender, Player, Key),
                 configuration.RepeatDecisionCommandMessage,
                 configuration.ExpirationTime
             );
