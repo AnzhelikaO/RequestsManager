@@ -6,6 +6,7 @@
     {
         bool Broken { get; }
         void TryToBreak(object Player);
+        bool Broke(object Player);
     }
 
     #endregion
@@ -42,6 +43,6 @@
         }
 
         protected abstract bool InvalidPlayer(object Player);
-        protected abstract bool Broke(object Player);
+        public abstract bool Broke(object Player);
     }
 }

@@ -96,7 +96,8 @@ namespace RequestsManagerPlugin
 
                 (Decision Decision, ICondition BrokenCondition) =
                     await RequestsManager.GetDecision(player, args.Player, "tp1",
-                    new Messages(new Message($"{args.Player} requested teleportation.")));
+                    new Messages(null, null, new Dictionary<MessageType, Message>()
+                    { [MessageType.AnnounceInbox] = new Message($"{args.Player} requested teleportation.") }));
                 if (Decision == Decision.Accepted)
                     args.Player.Teleport(player.X, player.Y);
             }), "tp1"));
@@ -107,7 +108,8 @@ namespace RequestsManagerPlugin
 
                 (Decision Decision, ICondition BrokenCondition) =
                     await RequestsManager.GetDecision(player, args.Player, "tp2",
-                    new Messages(new Message($"{args.Player} requested teleportation.")));
+                    new Messages(null, null, new Dictionary<MessageType, Message>()
+                    { [MessageType.AnnounceInbox] = new Message($"{args.Player} requested teleportation.") }));
                 if (Decision == Decision.Accepted)
                     args.Player.Teleport(player.X, player.Y);
             }), "tp2"));
@@ -118,7 +120,8 @@ namespace RequestsManagerPlugin
 
                 (Decision Decision, ICondition BrokenCondition) =
                     await RequestsManager.GetDecision(player, args.Player, "tp2",
-                    new Messages(new Message($"{args.Player} requested teleportation.")),
+                    new Messages(null, null, new Dictionary<MessageType, Message>()
+                    { [MessageType.AnnounceInbox] = new Message($"{args.Player} requested teleportation.") }),
                     new ICondition[] { new LoggedInCondition(true) });
                 if (Decision == Decision.Accepted)
                     args.Player.Teleport(player.X, player.Y);
@@ -127,8 +130,11 @@ namespace RequestsManagerPlugin
             {
                 (Decision decision, _) =
                     await RequestsManager.GetDecision(args.Player, "tp4",
-                    new Messages(new Message("OK_4?"),
-                    new Message("Type /+ or /-   !!!!!!!11111111111111111111111111111111111")));
+                    new Messages(null, null, new Dictionary<MessageType, Message>()
+                    {
+                        [MessageType.AnnounceInbox] = new Message("OK_4?"),
+                        [MessageType.DecisionCommand] = new Message("Type /+ or /-   !!!!!!!1111111111111111")
+                    }));
                 if (decision == Decision.Accepted)
                     args.Player.SendSuccessMessage("OK_4.");
             }), "tp4"));
@@ -223,9 +229,7 @@ namespace RequestsManagerPlugin
         private void OnKillMe(object sender, GetDataHandlers.KillMeEventArgs e)
         {
             TSPlayer player = TShock.Players[e.PlayerId];
-            RequestsManager.GetRequestConditions(player)
-                           .FirstOrDefault(c => c is AliveCondition)?
-                           .TryToBreak(player);
+            RequestsManager.GetRequestCondition<AliveCondition>(player)?.TryToBreak(player);
         }
 
         #endregion
@@ -234,9 +238,7 @@ namespace RequestsManagerPlugin
         private void OnPlayerUpdate(object sender, GetDataHandlers.PlayerUpdateEventArgs e)
         {
             TSPlayer player = TShock.Players[e.PlayerId];
-            RequestsManager.GetRequestConditions(player)
-                           .FirstOrDefault(c => c is AreaCondition)?
-                           .TryToBreak(player);
+            RequestsManager.GetRequestCondition<AreaCondition>(player)?.TryToBreak(player);
         }
 
         #endregion
@@ -245,9 +247,7 @@ namespace RequestsManagerPlugin
         private void OnPlayerHP(object sender, GetDataHandlers.PlayerHPEventArgs e)
         {
             TSPlayer player = TShock.Players[e.PlayerId];
-            RequestsManager.GetRequestConditions(player)
-                           .FirstOrDefault(c => c is HPCondition)?
-                           .TryToBreak(player);
+            RequestsManager.GetRequestCondition<HPCondition>(player)?.TryToBreak(player);
         }
 
         #endregion
@@ -256,9 +256,7 @@ namespace RequestsManagerPlugin
         private void OnPlayerSlot(object sender, GetDataHandlers.PlayerSlotEventArgs e)
         {
             TSPlayer player = TShock.Players[e.PlayerId];
-            RequestsManager.GetRequestConditions(player)
-                           .FirstOrDefault(c => c is ItemCondition)?
-                           .TryToBreak(player);
+            RequestsManager.GetRequestCondition<ItemCondition>(player)?.TryToBreak(player);
         }
 
         #endregion
@@ -267,9 +265,7 @@ namespace RequestsManagerPlugin
         private void OnPlayerPostLogin(PlayerPostLoginEventArgs e)
         {
             TSPlayer player = e.Player;
-            RequestsManager.GetRequestConditions(player)
-                           .FirstOrDefault(c => c is LoggedInCondition)?
-                           .TryToBreak(player);
+            RequestsManager.GetRequestCondition<LoggedInCondition>(player)?.TryToBreak(player);
         }
 
         #endregion
@@ -278,9 +274,7 @@ namespace RequestsManagerPlugin
         private void OnPlayerLogout(PlayerLogoutEventArgs e)
         {
             TSPlayer player = e.Player;
-            RequestsManager.GetRequestConditions(player)
-                           .FirstOrDefault(c => c is LoggedInCondition)?
-                           .TryToBreak(player);
+            RequestsManager.GetRequestCondition<LoggedInCondition>(player)?.TryToBreak(player);
         }
 
         #endregion
@@ -289,9 +283,7 @@ namespace RequestsManagerPlugin
         private void OnPlayerMana(object sender, GetDataHandlers.PlayerManaEventArgs e)
         {
             TSPlayer player = TShock.Players[e.PlayerId];
-            RequestsManager.GetRequestConditions(player)
-                           .FirstOrDefault(c => c is ManaCondition)?
-                           .TryToBreak(player);
+            RequestsManager.GetRequestCondition<ManaCondition>(player)?.TryToBreak(player);
         }
 
         #endregion
@@ -300,9 +292,7 @@ namespace RequestsManagerPlugin
         private void OnTogglePvp(object sender, GetDataHandlers.TogglePvpEventArgs e)
         {
             TSPlayer player = TShock.Players[e.PlayerId];
-            RequestsManager.GetRequestConditions(player)
-                           .FirstOrDefault(c => c is PvPCondition)?
-                           .TryToBreak(player);
+            RequestsManager.GetRequestCondition<PvPCondition>(player)?.TryToBreak(player);
         }
 
         #endregion
@@ -311,9 +301,7 @@ namespace RequestsManagerPlugin
         private void OnPlayerTeam(object sender, GetDataHandlers.PlayerTeamEventArgs e)
         {
             TSPlayer player = TShock.Players[e.PlayerId];
-            RequestsManager.GetRequestConditions(player)
-                           .FirstOrDefault(c => c is TeamCondition)?
-                           .TryToBreak(player);
+            RequestsManager.GetRequestCondition<TeamCondition>(player)?.TryToBreak(player);
         }
 
         #endregion

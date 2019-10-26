@@ -61,7 +61,9 @@ namespace RequestsManagerAPI
             new ConcurrentDictionary<string, ConcurrentDictionary<object, byte>>();
         private ConcurrentDictionary<ICondition, byte> Conditions =
             new ConcurrentDictionary<ICondition, byte>();
-        internal IEnumerable<ICondition> GetRequestConditions() => Conditions.Keys;
+        internal T GetRequestCondition<T>()
+                where T : ICondition =>
+            (T)Conditions.Keys.FirstOrDefault(k => k is T);
 
         #endregion
         internal static ConcurrentDictionary<string, RequestConfiguration> RequestConfigurations =
@@ -147,12 +149,20 @@ namespace RequestsManagerAPI
                 return (Decision.Blocked, null);
             }
 
+            if (!emptySender)
+                foreach (ICondition condition in SenderConditions)
+                    if (condition.Broke(Sender))
+                        return (Decision.SenderFailedCondition, condition);
+            foreach (ICondition condition in ReceiverConditions)
+                if (condition.Broke(Sender))
+                    return (Decision.ReceiverFailedCondition, condition);
+
             Request request = new Request
             (
                 SenderConditions,
                 ReceiverConditions,
-                Messages.GetMessage(Messages.MessageType.AnnounceInbox, Player, Sender, Key),
-                Messages.GetMessage(Messages.MessageType.DecisionCommand, Player, Sender, Key),
+                Messages.GetMessage(MessageType.AnnounceInbox, Player, Sender, Key),
+                Messages.GetMessage(MessageType.DecisionCommand, Player, Sender, Key),
                 configuration.RepeatDecisionCommandMessage,
                 configuration.ExpirationTime
             );
@@ -185,8 +195,7 @@ namespace RequestsManagerAPI
             if (ReceiverConditions != null)
                 foreach (ICondition condition in ReceiverConditions)
                     Conditions.TryAdd(condition, 0);
-            RequestsManager.TrySendMessage(Sender, $"Sent {Key} request " +
-                $"to {RequestsManager.GetPlayerNameFunc(Player)}.", 0, 128, 0);
+            Messages.SendMessage(Sender, Sender, Player, MessageType.AnnounceOutbox, Key);
             request.Annouce(Player, true);
 
             Decision decision = await request.Source.Task;

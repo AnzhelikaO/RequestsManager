@@ -16,7 +16,7 @@ namespace RequestsManagerPlugin
                 return true;
         }
 
-        protected sealed override bool Broke(object Player) =>
+        public sealed override bool Broke(object Player) =>
             Broke(Player as TSPlayer);
         protected abstract bool Broke(TSPlayer Player);
     }

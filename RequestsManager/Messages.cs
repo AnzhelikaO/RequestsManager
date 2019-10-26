@@ -8,33 +8,35 @@ namespace RequestsManagerAPI
     {
         #region Data
 
-        Message? AnnounceOutboxMessageOverride, AnnounceInboxMessageOverride, DecisionCommandMessageOverride;
-        private Dictionary<Decision, Message>[] FormatOverrides =
+        private Dictionary<Decision, Message>[] DecisionFormatOverrides =
             new Dictionary<Decision, Message>[]
             {
                 new Dictionary<Decision, Message>(),
                 new Dictionary<Decision, Message>()
             };
-        
+        private Dictionary<MessageType, Message> OtherFormatOverrides =
+            new Dictionary<MessageType, Message>();
+
         #endregion
         #region Constructor
 
-        public Messages(Message? AnnounceMessageOverride = null,
-            Message? DecisionCommandMessageOverride = null,
-            Dictionary<Decision, Message> SenderFormatOverrides = null,
-            Dictionary<Decision, Message> ReceiverFormatOverrides = null)
+        public Messages(Dictionary<Decision, Message> SenderFormatOverrides = null,
+            Dictionary<Decision, Message> ReceiverFormatOverrides = null,
+            Dictionary<MessageType, Message> OtherFormatOverrides = null)
         {
-            this.AnnounceInboxMessageOverride = AnnounceMessageOverride;
-            this.DecisionCommandMessageOverride = DecisionCommandMessageOverride;
-            this.FormatOverrides[0] = (SenderFormatOverrides ?? new Dictionary<Decision, Message>());
-            this.FormatOverrides[1] = (ReceiverFormatOverrides ?? new Dictionary<Decision, Message>());
+            this.DecisionFormatOverrides[0] =
+                (SenderFormatOverrides ?? new Dictionary<Decision, Message>());
+            this.DecisionFormatOverrides[1] =
+                (ReceiverFormatOverrides ?? new Dictionary<Decision, Message>());
+            this.OtherFormatOverrides =
+                (OtherFormatOverrides ?? new Dictionary<MessageType, Message>());
         }
 
         #endregion
 
-        #region GetDefaultMessageFormat
+        #region GetDefaultDecisionMessageFormat
 
-        public static Message GetDefaultMessageFormat(bool ToSender, Decision Decision)
+        public static Message GetDefaultDecisionMessageFormat(bool ToSender, Decision Decision)
         {
             switch (Decision)
             {
@@ -109,89 +111,44 @@ namespace RequestsManagerAPI
         }
 
         #endregion
-        #region GetMessage
+        #region GetDefaultOtherMessageFormat
 
-        public enum MessageType
+        public static Message GetDefaultOtherMessageFormat(MessageType Type)
         {
-            AnnounceOutbox,
-            AnnounceInbox,
-            DecisionCommand
-        }
-
-        public Message GetMessage(MessageType Type, object Receiver, object Sender, string Key)
-        {
-            if (Receiver is null)
-                throw new ArgumentNullException(nameof(Receiver));
-            if (Key is null)
-                throw new ArgumentNullException(nameof(Key));
-
-            string receiverName = RequestsManager.GetPlayerNameFunc?.Invoke(Receiver);
-            string senderName = ((Sender == null || Sender.Equals(RequestsManager.EmptySender))
-                                    ? null
-                                    : RequestsManager.GetPlayerNameFunc?.Invoke(Sender));
-            Message? messageOverride;
-            Message messageOriginal;
             switch (Type)
             {
-                case MessageType.AnnounceOutbox:
-                    messageOverride = AnnounceOutboxMessageOverride;
-                    messageOriginal = new Message
-                    (
-                        "Sent {KEY} request to {RECEIVER}.",
-                        0, 128, 0
-                    );
-                    break;
                 case MessageType.AnnounceInbox:
-                    messageOverride = AnnounceInboxMessageOverride;
-                    messageOriginal = new Message
+                    return new Message
                     (
                         "You have received {KEY} request from player {SENDER}.",
                         "You have received {KEY} request.",
                         255, 69, 0
                     );
-                    break;
+                case MessageType.AnnounceOutbox:
+                    return new Message("Sent {KEY} request to {RECEIVER}.", 0, 128, 0);
                 case MessageType.DecisionCommand:
-                    messageOverride = DecisionCommandMessageOverride;
                     string specifier = RequestsManager.CommandSpecifier;
-                    string key = ((Key.Contains(" ") ? $"\"{Key}\"" : Key));
-                    messageOriginal = new Message
+                    return new Message
                     (
-                        $"Type «{specifier}+ {key} {senderName}» to accept " +
-                        $"or «{specifier}- {key} {senderName}» to refuse request.",
-                        $"Type «{specifier}+ {key}» to accept " +
-                        $"or «{specifier}- {key}» to refuse request.",
+                        $"Type «{specifier}+ {{KEY}} {{SENDER}}» to accept " +
+                        $"or «{specifier}- {{KEY}} {{SENDER}}» to refuse request.",
+                        $"Type «{specifier}+ {{KEY}}» to accept " +
+                        $"or «{specifier}- {{KEY}}» to refuse request.",
                         255, 69, 0
                     );
-                    break;
                 default:
                     throw new NotImplementedException();
             }
-
-            string with = (messageOverride?.MessageWithSenderName
-                ?? messageOriginal.MessageWithSenderName);
-            string without = (messageOverride?.MessageWithoutSenderName
-                ?? messageOriginal.MessageWithoutSenderName);
-
-            return new Message
-            (
-                with, without,
-                (messageOverride?.R ?? messageOriginal.R),
-                (messageOverride?.G ?? messageOriginal.G),
-                (messageOverride?.B ?? messageOriginal.B)
-            )
-            {
-                ResultingMessage =
-                    ((senderName is null)
-                        ? Replace(without, Key, senderName, receiverName, null)
-                        : Replace(with, Key, senderName, receiverName, null))
-            };
         }
+
+        #endregion
+        #region GetMessage
 
         public Dictionary<object, Message> GetMessages(object Sender, object Receiver,
             Decision Decision, string Key, string AnotherPlayerName = null)
         {
             if (Receiver is null)
-                throw new ArgumentNullException(nameof(Sender));
+                throw new ArgumentNullException(nameof(Receiver));
             if (Key is null)
                 throw new ArgumentNullException(nameof(Key));
 
@@ -205,30 +162,32 @@ namespace RequestsManagerAPI
                 if (players[i] != null)
                 {
                     Message? messageOverride = null;
-                    if (FormatOverrides[i].TryGetValue(Decision, out Message msg))
+                    if (DecisionFormatOverrides[i].TryGetValue(Decision, out Message msg))
                         messageOverride = msg;
-                    Message messageOriginal = GetDefaultMessageFormat((i == 0), Decision);
 
-                    string with = (messageOverride?.MessageWithSenderName
-                        ?? messageOriginal.MessageWithSenderName);
-                    string without = (messageOverride?.MessageWithoutSenderName
-                        ?? messageOriginal.MessageWithoutSenderName);
-
-                    messages[players[i]] = new Message
-                    (
-                        with, without,
-                        (messageOverride?.R ?? messageOriginal.R),
-                        (messageOverride?.G ?? messageOriginal.G),
-                        (messageOverride?.B ?? messageOriginal.B)
-                    )
-                    {
-                        ResultingMessage =
-                            ((senderName is null)
-                                ? Replace(without, Key, senderName, receiverName, AnotherPlayerName)
-                                : Replace(with, Key, senderName, receiverName, AnotherPlayerName))
-                    };
+                    messages[players[i]] = Message.Get(GetDefaultDecisionMessageFormat((i == 0), Decision),
+                        messageOverride, Key, senderName, receiverName, AnotherPlayerName);
                 }
             return messages;
+        }
+
+        public Message GetMessage(MessageType Type, object Sender, object Receiver, string Key)
+        {
+            if (Receiver is null)
+                throw new ArgumentNullException(nameof(Receiver));
+            if (Key is null)
+                throw new ArgumentNullException(nameof(Key));
+
+            Message? messageOverride = null;
+            if (OtherFormatOverrides.TryGetValue(Type, out Message msg))
+                messageOverride = msg;
+
+            string senderName = ((Sender == null || Sender.Equals(RequestsManager.EmptySender))
+                                    ? null
+                                    : RequestsManager.GetPlayerNameFunc?.Invoke(Sender));
+            string receiverName = RequestsManager.GetPlayerNameFunc?.Invoke(Receiver);
+            return Message.Get(GetDefaultOtherMessageFormat(Type),
+                messageOverride, Key, senderName, receiverName, null);
         }
 
         #endregion
@@ -242,22 +201,12 @@ namespace RequestsManagerAPI
                     (pair.Value.R ?? 255), (pair.Value.G ?? 255), (pair.Value.B ?? 255));
         }
 
-        #endregion
-        #region Replace
-
-        private string Replace(string Input, string Key, string SenderName,
-            string ReceiverName, string AnotherPlayerName)
+        public void SendMessage(object SendTo, object Sender,
+            object Receiver, MessageType Type, string Key)
         {
-            if (Input is null)
-                return null;
-
-            string result = Input.Replace("{KEY}", Key)
-                                 .Replace("{RECEIVER}", ReceiverName);
-            if (SenderName != null)
-                result = result.Replace("{SENDER}", SenderName);
-            if (AnotherPlayerName != null)
-                result = result.Replace("{ANOTHERPLAYER}", AnotherPlayerName);
-            return result;
+            Message message = GetMessage(Type, Sender, Receiver, Key);
+            RequestsManager.TrySendMessage(SendTo, message.ResultingMessage,
+                (message.R ?? 255), (message.G ?? 255), (message.B ?? 255));
         }
 
         #endregion

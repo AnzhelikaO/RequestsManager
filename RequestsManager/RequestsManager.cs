@@ -97,10 +97,11 @@ namespace RequestsManagerAPI
 
         #region GetRequestConditions
 
-        public static IEnumerable<ICondition> GetRequestConditions(object Player) =>
+        public static T GetRequestCondition<T>(object Player)
+                where T : ICondition =>
             ((Player != null) && RequestCollections.TryGetValue(Player, out RequestCollection collection)
-                ? collection.GetRequestConditions()
-                : new ICondition[0]);
+                ? collection.GetRequestCondition<T>()
+                : default);
 
         #endregion
         #region BrokeCondition
