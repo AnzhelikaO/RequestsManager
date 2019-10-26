@@ -149,13 +149,14 @@ namespace RequestsManagerAPI
                 return (Decision.Blocked, null);
             }
 
-            if (!emptySender)
+            if (!emptySender && (SenderConditions != null))
                 foreach (ICondition condition in SenderConditions)
                     if (condition.Broke(Sender))
                         return (Decision.SenderFailedCondition, condition);
-            foreach (ICondition condition in ReceiverConditions)
-                if (condition.Broke(Sender))
-                    return (Decision.ReceiverFailedCondition, condition);
+            if (!emptySender && (ReceiverConditions != null))
+                foreach (ICondition condition in ReceiverConditions)
+                    if (condition.Broke(Sender))
+                        return (Decision.ReceiverFailedCondition, condition);
 
             Request request = new Request
             (
