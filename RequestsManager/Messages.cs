@@ -91,6 +91,11 @@ namespace RequestsManagerAPI
                             ? new Message("You cancelled {KEY} request by leaving.", 255, 0, 0)
                             : new Message("{SENDER} cancelled {KEY} request by leaving.",
                                           "{KEY} request was force cancelled.", 255, 0, 0));
+                case Decision.ReceiverLeft:
+                    return (ToSender
+                            ? new Message("{RECEIVER} refused your {KEY} request by leaving.", 255, 0, 0)
+                            : new Message("Refused {KEY} request from player {SENDER} by leaving.",
+                                          "Refused {KEY} request.", 0, 128, 0));
                 case Decision.AlreadySentToSamePlayer:
                     return (ToSender
                             ? new Message("You have already sent {KEY} request to {RECEIVER}.", 255, 0, 0)
