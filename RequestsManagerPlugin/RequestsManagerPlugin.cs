@@ -74,11 +74,11 @@ namespace RequestsManagerPlugin
                 if (args.Parameters.Count == 1)
                 {
                     string name = args.Parameters[0];
-                    List<TSPlayer> plrs = TShock.Utils.FindPlayer(name);
+                    List<TSPlayer> plrs = TSPlayer.FindByNameOrID(name);
                     if (plrs.Count == 0)
                         args.Player.SendErrorMessage($"Invalid player '{name}'.");
                     else if (plrs.Count > 1)
-                        TShock.Utils.SendMultipleMatchError(args.Player, plrs.Select(p => p.Name));
+                        args.Player.SendMultipleMatchError(plrs.Select(p => p.Name));
                     else
                         Player = plrs[0];
                 }

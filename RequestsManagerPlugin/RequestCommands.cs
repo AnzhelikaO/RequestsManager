@@ -144,11 +144,11 @@ namespace RequestsManagerPlugin
                 return true;
 
             string playerName = string.Join(" ", Args.Parameters.Skip(1));
-            List<TSPlayer> players = TShock.Utils.FindPlayer(playerName);
+            List<TSPlayer> players = TSPlayer.FindByNameOrID(playerName);
             if (players.Count == 0)
                 Args.Player.SendErrorMessage($"Invalid player '{playerName}'.");
             else if (players.Count > 1)
-                TShock.Utils.SendMultipleMatchError(Args.Player, players.Select(p => p.Name));
+                Args.Player.SendMultipleMatchError(players.Select(p => p.Name));
             else
                 Player = players[0];
             return (Player != null);

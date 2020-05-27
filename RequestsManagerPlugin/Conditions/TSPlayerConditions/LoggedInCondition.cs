@@ -6,7 +6,7 @@ namespace RequestsManagerPlugin
         public LoggedInCondition(bool LoggedIn) : base(LoggedIn) { }
 
         protected override bool Broke(TSPlayer Player) =>
-            (Value ? (!Player.IsLoggedIn || Player.User == null)
-                   : (Player.IsLoggedIn && Player.User != null));
+            (Value ? (!Player.IsLoggedIn || Player.Account == null)
+                   : (Player.IsLoggedIn && Player.Account != null));
     }
 }
