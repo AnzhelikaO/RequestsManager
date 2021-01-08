@@ -30,7 +30,8 @@ namespace RequestsManagerPlugin
 
         public override void Initialize()
         {
-            TempDebug();
+            if (Environment.MachineName.ToLower() == "anzhelika-pc")
+                TempDebug();
 
             RequestCommands.Register();
             RequestsManager.SendMessage = OnSendMessage;
@@ -74,11 +75,11 @@ namespace RequestsManagerPlugin
                 if (args.Parameters.Count == 1)
                 {
                     string name = args.Parameters[0];
-                    List<TSPlayer> plrs = TShock.Utils.FindPlayer(name);
+                    List<TSPlayer> plrs = TSPlayer.FindByNameOrID(name);
                     if (plrs.Count == 0)
                         args.Player.SendErrorMessage($"Invalid player '{name}'.");
                     else if (plrs.Count > 1)
-                        TShock.Utils.SendMultipleMatchError(args.Player, plrs.Select(p => p.Name));
+                        args.Player.SendMultipleMatchError(plrs.Select(p => p.Name));
                     else
                         Player = plrs[0];
                 }
@@ -220,8 +221,11 @@ namespace RequestsManagerPlugin
 
         private void OnServerJoin(JoinEventArgs args) =>
             RequestsManager.PlayerJoined(TShock.Players[args.Who]);
-        private void OnServerLeave(LeaveEventArgs args) =>
-            RequestsManager.PlayerLeft(TShock.Players[args.Who]);
+        private void OnServerLeave(LeaveEventArgs args)
+        {
+            if (TShock.Players[args.Who] is TSPlayer player)
+                RequestsManager.PlayerLeft(player);
+        }
 
         #endregion
         #region OnKillMe

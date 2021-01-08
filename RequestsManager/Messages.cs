@@ -68,7 +68,7 @@ namespace RequestsManagerAPI
                 case Decision.RequestedOwnPlayer:
                     return (ToSender
                             ? new Message("You cannot request yourself.", 255, 0, 0)
-                            : new Message(null, 255, 0, 0));
+                            : new Message("UMM?", 255, 0, 0));
                 case Decision.Blocked:
                     return (ToSender
                             ? new Message("{RECEIVER} blocked your {KEY} requests.", 255, 0, 0)
