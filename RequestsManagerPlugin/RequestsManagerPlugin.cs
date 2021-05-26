@@ -43,7 +43,7 @@ namespace RequestsManagerPlugin
                     else
                         return false;
                 }),
-                TShock.Config.CommandSpecifier);
+                TShock.Config.Settings.CommandSpecifier);
             ServerApi.Hooks.ServerJoin.Register(this, OnServerJoin, int.MinValue);
             ServerApi.Hooks.ServerLeave.Register(this, OnServerLeave);
             GetDataHandlers.KillMe += OnKillMe;

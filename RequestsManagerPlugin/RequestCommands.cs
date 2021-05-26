@@ -16,22 +16,22 @@ namespace RequestsManagerPlugin
                 new Command(Accept, "accept", "+")
                 {
                     AllowServer = false,
-                    HelpText = $"{TShock.Config.CommandSpecifier}+ [request] [player]"
+                    HelpText = $"{TShock.Config.Settings.CommandSpecifier}+ [request] [player]"
                 },
                 new Command(Refuse, "refuse", "-")
                 {
                     AllowServer = false,
-                    HelpText = $"{TShock.Config.CommandSpecifier}- [request] [player]"
+                    HelpText = $"{TShock.Config.Settings.CommandSpecifier}- [request] [player]"
                 },
                 new Command(Cancel, "cancel")
                 {
                     AllowServer = false,
-                    HelpText = $"{TShock.Config.CommandSpecifier}cancel [request] [player]"
+                    HelpText = $"{TShock.Config.Settings.CommandSpecifier}cancel [request] [player]"
                 },
                 new Command(Block, "block")
                 {
                     AllowServer = false,
-                    HelpText = $"{TShock.Config.CommandSpecifier}block <request> <player>"
+                    HelpText = $"{TShock.Config.Settings.CommandSpecifier}block <request> <player>"
                 }
             };
             TShockAPI.Commands.ChatCommands.AddRange(Commands);
@@ -79,7 +79,7 @@ namespace RequestsManagerPlugin
         {
             if (args.Parameters.Count < 2)
             {
-                args.Player.SendErrorMessage($"{TShock.Config.CommandSpecifier}block <request> <player>");
+                args.Player.SendErrorMessage($"{TShock.Config.Settings.CommandSpecifier}block <request> <player>");
                 return;
             }
 
