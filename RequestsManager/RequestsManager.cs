@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
+using Timer = System.Timers.Timer;
 #endregion
 namespace RequestsManagerAPI
 {

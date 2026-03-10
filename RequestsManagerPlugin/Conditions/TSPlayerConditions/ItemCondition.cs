@@ -23,7 +23,7 @@ namespace RequestsManagerPlugin
             int id = Value.ItemID;
             foreach (Item[] items in Value.In)
                 foreach (Item item in items)
-                    if (item?.netID == id)
+                    if (item.type == id)
                         return Value.Has;
             return !Value.Has;
         }
