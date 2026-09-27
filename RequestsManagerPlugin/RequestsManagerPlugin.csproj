@@ -26,9 +26,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="OTAPI.Upcoming" Version="3.3.10" />
-    <PackageReference Include="TSAPI" Version="6.0.0" />
-    <PackageReference Include="TShock" Version="6.0.0" />
+    <PackageReference Include="OTAPI.Upcoming" Version="3.3.14" />
+    <PackageReference Include="TSAPI" Version="6.2.1" />
+    <PackageReference Include="TShock" Version="6.2.1" />
   </ItemGroup>
 
   <ItemGroup>
